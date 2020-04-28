@@ -1,0 +1,35 @@
+{
+  "name": "skylark-datgui",
+  "description": "A version of dat.gui.js  that ported to running on skylarkjs.",
+  "version": "0.9.0",
+  "keywords": [
+    "skylark",
+    "framework",
+    "skylark-datgui"
+  ],
+  "homepage": "https://github.com/skylark-integration/skylark-datgui/",
+  "author": "Hudaokeji, Inc.",
+  "scripts": {
+    "build": "sbundle build ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skylark-integration/skylark-datgui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/skylark-integration/skylark-datgui/issues"
+  },
+  "files": [
+    "demos/",
+    "dist/",
+    "src/",
+    "skins/"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "skylark-langx-ns": "git+https://github.com/skylark-langx/skylark-langx-ns.git#master"
+  },
+  "engines": {
+    "node": ">=0.10.1"
+  }
+}

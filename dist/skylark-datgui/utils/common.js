@@ -1,0 +1,9 @@
+/**
+ * skylark-datgui - A version of dat.gui.js  that ported to running on skylarkjs.
+ * @author Hudaokeji, Inc.
+ * @version v0.9.0
+ * @link https://github.com/skylark-integration/skylark-datgui/
+ * @license MIT
+ */
+define(function(){"use strict";const n=Array.prototype.forEach,t=Array.prototype.slice;return{BREAK:{},extend:function(n){return this.each(t.call(arguments,1),function(t){(this.isObject(t)?Object.keys(t):[]).forEach(function(i){this.isUndefined(t[i])||(n[i]=t[i])}.bind(this))},this),n},defaults:function(n){return this.each(t.call(arguments,1),function(t){(this.isObject(t)?Object.keys(t):[]).forEach(function(i){this.isUndefined(n[i])&&(n[i]=t[i])}.bind(this))},this),n},compose:function(){const n=t.call(arguments);return function(){let i=t.call(arguments);for(let t=n.length-1;t>=0;t--)i=[n[t].apply(this,i)];return i[0]}},each:function(t,i,r){if(t)if(n&&t.forEach&&t.forEach===n)t.forEach(i,r);else if(t.length===t.length+0){let n,e;for(n=0,e=t.length;n<e;n++)if(n in t&&i.call(r,t[n],n)===this.BREAK)return}else for(const n in t)if(i.call(r,t[n],n)===this.BREAK)return},defer:function(n){setTimeout(n,0)},debounce:function(n,t,i){let r;return function(){const e=this,c=arguments;const o=i||!r;clearTimeout(r),r=setTimeout(function(){r=null,i||n.apply(e,c)},t),o&&n.apply(e,c)}},toArray:function(n){return n.toArray?n.toArray():t.call(n)},isUndefined:function(n){return void 0===n},isNull:function(n){return null===n},isNaN:function(n){return isNaN(n)},isArray:Array.isArray||function(n){return n.constructor===Array},isObject:function(n){return n===Object(n)},isNumber:function(n){return n===n+0},isString:function(n){return n===n+""},isBoolean:function(n){return!1===n||!0===n},isFunction:function(n){return n instanceof Function}}});
+//# sourceMappingURL=../sourcemaps/utils/common.js.map
