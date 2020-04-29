@@ -125,23 +125,20 @@ define('skylark-datgui/color/toString',[],function () {
         return 'unknown format';
     };
 });
-define('skylark-datgui/utils/common',[],function () {
+define('skylark-datgui/utils/common',[
+    "skylark-langx-types",
+    "skylark-langx-arrays",
+    "skylark-langx-objects",
+    "skylark-langx-funcs"
+],function (types,arrays,objects,funcs) {
     'use strict';
     const ARR_EACH = Array.prototype.forEach;
     const ARR_SLICE = Array.prototype.slice;
     const Common = {
         BREAK: {},
-        extend: function (target) {
-            this.each(ARR_SLICE.call(arguments, 1), function (obj) {
-                const keys = this.isObject(obj) ? Object.keys(obj) : [];
-                keys.forEach(function (key) {
-                    if (!this.isUndefined(obj[key])) {
-                        target[key] = obj[key];
-                    }
-                }.bind(this));
-            }, this);
-            return target;
-        },
+
+        extend: objects.extend,
+
         defaults: function (target) {
             this.each(ARR_SLICE.call(arguments, 1), function (obj) {
                 const keys = this.isObject(obj) ? Object.keys(obj) : [];
@@ -153,6 +150,7 @@ define('skylark-datgui/utils/common',[],function () {
             }, this);
             return target;
         },
+
         compose: function () {
             const toCall = ARR_SLICE.call(arguments);
             return function () {
@@ -163,6 +161,7 @@ define('skylark-datgui/utils/common',[],function () {
                 return args[0];
             };
         },
+
         each: function (obj, itr, scope) {
             if (!obj) {
                 return;
@@ -185,9 +184,9 @@ define('skylark-datgui/utils/common',[],function () {
                 }
             }
         },
-        defer: function (fnc) {
-            setTimeout(fnc, 0);
-        },
+
+        defer: funcs.defer,
+
         debounce: function (func, threshold, callImmediately) {
             let timeout;
             return function () {
@@ -206,39 +205,21 @@ define('skylark-datgui/utils/common',[],function () {
                 }
             };
         },
-        toArray: function (obj) {
-            if (obj.toArray)
-                return obj.toArray();
-            return ARR_SLICE.call(obj);
-        },
-        isUndefined: function (obj) {
-            return obj === undefined;
-        },
-        isNull: function (obj) {
-            return obj === null;
-        },
-        isNaN: function (obj) {
-            return isNaN(obj);
-        },
-        isArray: Array.isArray || function (obj) {
-            return obj.constructor === Array;
-        },
-        isObject: function (obj) {
-            return obj === Object(obj);
-        },
-        isNumber: function (obj) {
-            return obj === obj + 0;
-        },
-        isString: function (obj) {
-            return obj === obj + '';
-        },
-        isBoolean: function (obj) {
-            return obj === false || obj === true;
-        },
-        isFunction: function (obj) {
-            return obj instanceof Function;
-        }
+
+        toArray: arrays.toArray || arrays.makeArray,
+
+        isUndefined: types.isUndefined,
+        isNull: types.isNull,
+        isNaN: types.isNaN,
+        isArray: types.isArray,
+
+        isObject: types.isPlainObject,
+        isNumber: types.isNumber,
+        isString: types.isString,
+        isBoolean: types.isBoolean,
+        isFunction: types.isFunction
     };
+
     return Common;
 });
 define('skylark-datgui/color/interpret',[
@@ -485,92 +466,16 @@ define('skylark-datgui/color/interpret',[
     };
     return interpret;
 });
-define('skylark-datgui/color/math',[],function () {
+define('skylark-datgui/color/math',[
+    "skylark-data-color"
+], function (colors) {
     'use strict';
     let tmpComponent;
     const ColorMath = {
-        hsv_to_rgb: function (h, s, v) {
-            const hi = Math.floor(h / 60) % 6;
-            const f = h / 60 - Math.floor(h / 60);
-            const p = v * (1 - s);
-            const q = v * (1 - f * s);
-            const t = v * (1 - (1 - f) * s);
-            const c = [
-                [
-                    v,
-                    t,
-                    p
-                ],
-                [
-                    q,
-                    v,
-                    p
-                ],
-                [
-                    p,
-                    v,
-                    t
-                ],
-                [
-                    p,
-                    q,
-                    v
-                ],
-                [
-                    t,
-                    p,
-                    v
-                ],
-                [
-                    v,
-                    p,
-                    q
-                ]
-            ][hi];
-            return {
-                r: c[0] * 255,
-                g: c[1] * 255,
-                b: c[2] * 255
-            };
-        },
-        rgb_to_hsv: function (r, g, b) {
-            const min = Math.min(r, g, b);
-            const max = Math.max(r, g, b);
-            const delta = max - min;
-            let h;
-            let s;
-            if (max !== 0) {
-                s = delta / max;
-            } else {
-                return {
-                    h: NaN,
-                    s: 0,
-                    v: 0
-                };
-            }
-            if (r === max) {
-                h = (g - b) / delta;
-            } else if (g === max) {
-                h = 2 + (b - r) / delta;
-            } else {
-                h = 4 + (r - g) / delta;
-            }
-            h /= 6;
-            if (h < 0) {
-                h += 1;
-            }
-            return {
-                h: h * 360,
-                s: s,
-                v: max / 255
-            };
-        },
-        rgb_to_hex: function (r, g, b) {
-            let hex = this.hex_with_component(0, 2, r);
-            hex = this.hex_with_component(hex, 1, g);
-            hex = this.hex_with_component(hex, 0, b);
-            return hex;
-        },
+        hsv_to_rgb: colors.hsvToRgb,
+        rgb_to_hsv: colors.rgbToHsv,
+        rgb_to_hex: colors.rgbToHex,
+        
         component_from_hex: function (hex, componentIndex) {
             return hex >> componentIndex * 8 & 255;
         },
@@ -587,11 +492,11 @@ define('skylark-datgui/color/Color',[
     '../utils/common'
 ], function (interpret, math, colorToString, common) {
     'use strict';
-    class Color {
+    class Color  {
         constructor() {
             this.__state = interpret.apply(this, arguments);
             if (this.__state === false) {
-                throw new Error('Failed to interpret color arguments');
+                throw new Error('Failed tcomponent_from_hexo interpret color arguments');
             }
             this.__state.a = this.__state.a || 1;
         }
@@ -740,7 +645,13 @@ define('skylark-datgui/controllers/Controller',[],function () {
     }
     return Controller;
 });
-define('skylark-datgui/dom/dom',['../utils/common'], function (common) {
+define('skylark-datgui/dom/dom',[
+    "skylark-domx-noder",
+    "skylark-domx-styler",
+    "skylark-domx-geom",
+    "skylark-domx-eventer",
+    '../utils/common'
+], function (noder,styler,geom,eventer,common) {
     'use strict';
     const EVENT_MAP = {
         HTMLEvents: ['change'],
@@ -771,36 +682,10 @@ define('skylark-datgui/dom/dom',['../utils/common'], function (common) {
         return 0;
     }
     const dom = {
-        makeSelectable: function (elem, selectable) {
-            if (elem === undefined || elem.style === undefined)
-                return;
-            elem.onselectstart = selectable ? function () {
-                return false;
-            } : function () {
-            };
-            elem.style.MozUserSelect = selectable ? 'auto' : 'none';
-            elem.style.KhtmlUserSelect = selectable ? 'auto' : 'none';
-            elem.unselectable = selectable ? 'on' : 'off';
-        },
-        makeFullscreen: function (elem, hor, vert) {
-            let vertical = vert;
-            let horizontal = hor;
-            if (common.isUndefined(horizontal)) {
-                horizontal = true;
-            }
-            if (common.isUndefined(vertical)) {
-                vertical = true;
-            }
-            elem.style.position = 'absolute';
-            if (horizontal) {
-                elem.style.left = 0;
-                elem.style.right = 0;
-            }
-            if (vertical) {
-                elem.style.top = 0;
-                elem.style.bottom = 0;
-            }
-        },
+        makeSelectable: noder.selectable,
+
+        makeFullscreen: geom.fullCover,
+
         fakeEvent: function (elem, eventType, pars, aux) {
             const params = pars || {};
             const className = EVENT_MAP_INV[eventType];
@@ -837,82 +722,23 @@ define('skylark-datgui/dom/dom',['../utils/common'], function (common) {
             common.defaults(evt, aux);
             elem.dispatchEvent(evt);
         },
-        bind: function (elem, event, func, newBool) {
-            const bool = newBool || false;
-            if (elem.addEventListener) {
-                elem.addEventListener(event, func, bool);
-            } else if (elem.attachEvent) {
-                elem.attachEvent('on' + event, func);
-            }
-            return dom;
-        },
-        unbind: function (elem, event, func, newBool) {
-            const bool = newBool || false;
-            if (elem.removeEventListener) {
-                elem.removeEventListener(event, func, bool);
-            } else if (elem.detachEvent) {
-                elem.detachEvent('on' + event, func);
-            }
-            return dom;
-        },
-        addClass: function (elem, className) {
-            if (elem.className === undefined) {
-                elem.className = className;
-            } else if (elem.className !== className) {
-                const classes = elem.className.split(/ +/);
-                if (classes.indexOf(className) === -1) {
-                    classes.push(className);
-                    elem.className = classes.join(' ').replace(/^\s+/, '').replace(/\s+$/, '');
-                }
-            }
-            return dom;
-        },
-        removeClass: function (elem, className) {
-            if (className) {
-                if (elem.className === className) {
-                    elem.removeAttribute('class');
-                } else {
-                    const classes = elem.className.split(/ +/);
-                    const index = classes.indexOf(className);
-                    if (index !== -1) {
-                        classes.splice(index, 1);
-                        elem.className = classes.join(' ');
-                    }
-                }
-            } else {
-                elem.className = undefined;
-            }
-            return dom;
-        },
-        hasClass: function (elem, className) {
-            return new RegExp('(?:^|\\s+)' + className + '(?:\\s+|$)').test(elem.className) || false;
-        },
-        getWidth: function (elem) {
-            const style = getComputedStyle(elem);
-            return cssValueToPixels(style['border-left-width']) + cssValueToPixels(style['border-right-width']) + cssValueToPixels(style['padding-left']) + cssValueToPixels(style['padding-right']) + cssValueToPixels(style.width);
-        },
-        getHeight: function (elem) {
-            const style = getComputedStyle(elem);
-            return cssValueToPixels(style['border-top-width']) + cssValueToPixels(style['border-bottom-width']) + cssValueToPixels(style['padding-top']) + cssValueToPixels(style['padding-bottom']) + cssValueToPixels(style.height);
-        },
-        getOffset: function (el) {
-            let elem = el;
-            const offset = {
-                left: 0,
-                top: 0
-            };
-            if (elem.offsetParent) {
-                do {
-                    offset.left += elem.offsetLeft;
-                    offset.top += elem.offsetTop;
-                    elem = elem.offsetParent;
-                } while (elem);
-            }
-            return offset;
-        },
-        isActive: function (elem) {
-            return elem === document.activeElement && (elem.type || elem.href);
-        }
+
+        bind: eventer.on,
+        unbind: eventer.off,
+
+        addClass: styler.addClass,
+
+        removeClass: styler.removeClass,
+
+        hasClass: styler.hasClass,
+
+        getWidth: geom.width,
+
+        getHeight: geom.height,
+
+        getOffset: geom.pagePosition,
+
+        isActive: noder.isActive
     };
     return dom;
 });

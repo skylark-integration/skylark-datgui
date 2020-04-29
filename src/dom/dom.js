@@ -1,4 +1,10 @@
-define(['../utils/common'], function (common) {
+define([
+    "skylark-domx-noder",
+    "skylark-domx-styler",
+    "skylark-domx-geom",
+    "skylark-domx-eventer",
+    '../utils/common'
+], function (noder,styler,geom,eventer,common) {
     'use strict';
     const EVENT_MAP = {
         HTMLEvents: ['change'],
@@ -29,36 +35,10 @@ define(['../utils/common'], function (common) {
         return 0;
     }
     const dom = {
-        makeSelectable: function (elem, selectable) {
-            if (elem === undefined || elem.style === undefined)
-                return;
-            elem.onselectstart = selectable ? function () {
-                return false;
-            } : function () {
-            };
-            elem.style.MozUserSelect = selectable ? 'auto' : 'none';
-            elem.style.KhtmlUserSelect = selectable ? 'auto' : 'none';
-            elem.unselectable = selectable ? 'on' : 'off';
-        },
-        makeFullscreen: function (elem, hor, vert) {
-            let vertical = vert;
-            let horizontal = hor;
-            if (common.isUndefined(horizontal)) {
-                horizontal = true;
-            }
-            if (common.isUndefined(vertical)) {
-                vertical = true;
-            }
-            elem.style.position = 'absolute';
-            if (horizontal) {
-                elem.style.left = 0;
-                elem.style.right = 0;
-            }
-            if (vertical) {
-                elem.style.top = 0;
-                elem.style.bottom = 0;
-            }
-        },
+        makeSelectable: noder.selectable,
+
+        makeFullscreen: geom.fullCover,
+
         fakeEvent: function (elem, eventType, pars, aux) {
             const params = pars || {};
             const className = EVENT_MAP_INV[eventType];
@@ -95,82 +75,23 @@ define(['../utils/common'], function (common) {
             common.defaults(evt, aux);
             elem.dispatchEvent(evt);
         },
-        bind: function (elem, event, func, newBool) {
-            const bool = newBool || false;
-            if (elem.addEventListener) {
-                elem.addEventListener(event, func, bool);
-            } else if (elem.attachEvent) {
-                elem.attachEvent('on' + event, func);
-            }
-            return dom;
-        },
-        unbind: function (elem, event, func, newBool) {
-            const bool = newBool || false;
-            if (elem.removeEventListener) {
-                elem.removeEventListener(event, func, bool);
-            } else if (elem.detachEvent) {
-                elem.detachEvent('on' + event, func);
-            }
-            return dom;
-        },
-        addClass: function (elem, className) {
-            if (elem.className === undefined) {
-                elem.className = className;
-            } else if (elem.className !== className) {
-                const classes = elem.className.split(/ +/);
-                if (classes.indexOf(className) === -1) {
-                    classes.push(className);
-                    elem.className = classes.join(' ').replace(/^\s+/, '').replace(/\s+$/, '');
-                }
-            }
-            return dom;
-        },
-        removeClass: function (elem, className) {
-            if (className) {
-                if (elem.className === className) {
-                    elem.removeAttribute('class');
-                } else {
-                    const classes = elem.className.split(/ +/);
-                    const index = classes.indexOf(className);
-                    if (index !== -1) {
-                        classes.splice(index, 1);
-                        elem.className = classes.join(' ');
-                    }
-                }
-            } else {
-                elem.className = undefined;
-            }
-            return dom;
-        },
-        hasClass: function (elem, className) {
-            return new RegExp('(?:^|\\s+)' + className + '(?:\\s+|$)').test(elem.className) || false;
-        },
-        getWidth: function (elem) {
-            const style = getComputedStyle(elem);
-            return cssValueToPixels(style['border-left-width']) + cssValueToPixels(style['border-right-width']) + cssValueToPixels(style['padding-left']) + cssValueToPixels(style['padding-right']) + cssValueToPixels(style.width);
-        },
-        getHeight: function (elem) {
-            const style = getComputedStyle(elem);
-            return cssValueToPixels(style['border-top-width']) + cssValueToPixels(style['border-bottom-width']) + cssValueToPixels(style['padding-top']) + cssValueToPixels(style['padding-bottom']) + cssValueToPixels(style.height);
-        },
-        getOffset: function (el) {
-            let elem = el;
-            const offset = {
-                left: 0,
-                top: 0
-            };
-            if (elem.offsetParent) {
-                do {
-                    offset.left += elem.offsetLeft;
-                    offset.top += elem.offsetTop;
-                    elem = elem.offsetParent;
-                } while (elem);
-            }
-            return offset;
-        },
-        isActive: function (elem) {
-            return elem === document.activeElement && (elem.type || elem.href);
-        }
+
+        bind: eventer.on,
+        unbind: eventer.off,
+
+        addClass: styler.addClass,
+
+        removeClass: styler.removeClass,
+
+        hasClass: styler.hasClass,
+
+        getWidth: geom.width,
+
+        getHeight: geom.height,
+
+        getOffset: geom.pagePosition,
+
+        isActive: noder.isActive
     };
     return dom;
 });

@@ -1,20 +1,17 @@
-define(function () {
+define([
+    "skylark-langx-types",
+    "skylark-langx-arrays",
+    "skylark-langx-objects",
+    "skylark-langx-funcs"
+],function (types,arrays,objects,funcs) {
     'use strict';
     const ARR_EACH = Array.prototype.forEach;
     const ARR_SLICE = Array.prototype.slice;
     const Common = {
         BREAK: {},
-        extend: function (target) {
-            this.each(ARR_SLICE.call(arguments, 1), function (obj) {
-                const keys = this.isObject(obj) ? Object.keys(obj) : [];
-                keys.forEach(function (key) {
-                    if (!this.isUndefined(obj[key])) {
-                        target[key] = obj[key];
-                    }
-                }.bind(this));
-            }, this);
-            return target;
-        },
+
+        extend: objects.extend,
+
         defaults: function (target) {
             this.each(ARR_SLICE.call(arguments, 1), function (obj) {
                 const keys = this.isObject(obj) ? Object.keys(obj) : [];
@@ -26,6 +23,7 @@ define(function () {
             }, this);
             return target;
         },
+
         compose: function () {
             const toCall = ARR_SLICE.call(arguments);
             return function () {
@@ -36,6 +34,7 @@ define(function () {
                 return args[0];
             };
         },
+
         each: function (obj, itr, scope) {
             if (!obj) {
                 return;
@@ -58,9 +57,9 @@ define(function () {
                 }
             }
         },
-        defer: function (fnc) {
-            setTimeout(fnc, 0);
-        },
+
+        defer: funcs.defer,
+
         debounce: function (func, threshold, callImmediately) {
             let timeout;
             return function () {
@@ -79,38 +78,20 @@ define(function () {
                 }
             };
         },
-        toArray: function (obj) {
-            if (obj.toArray)
-                return obj.toArray();
-            return ARR_SLICE.call(obj);
-        },
-        isUndefined: function (obj) {
-            return obj === undefined;
-        },
-        isNull: function (obj) {
-            return obj === null;
-        },
-        isNaN: function (obj) {
-            return isNaN(obj);
-        },
-        isArray: Array.isArray || function (obj) {
-            return obj.constructor === Array;
-        },
-        isObject: function (obj) {
-            return obj === Object(obj);
-        },
-        isNumber: function (obj) {
-            return obj === obj + 0;
-        },
-        isString: function (obj) {
-            return obj === obj + '';
-        },
-        isBoolean: function (obj) {
-            return obj === false || obj === true;
-        },
-        isFunction: function (obj) {
-            return obj instanceof Function;
-        }
+
+        toArray: arrays.toArray || arrays.makeArray,
+
+        isUndefined: types.isUndefined,
+        isNull: types.isNull,
+        isNaN: types.isNaN,
+        isArray: types.isArray,
+
+        isObject: types.isPlainObject,
+        isNumber: types.isNumber,
+        isString: types.isString,
+        isBoolean: types.isBoolean,
+        isFunction: types.isFunction
     };
+
     return Common;
 });

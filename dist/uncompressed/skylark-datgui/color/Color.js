@@ -5,11 +5,11 @@ define([
     '../utils/common'
 ], function (interpret, math, colorToString, common) {
     'use strict';
-    class Color {
+    class Color  {
         constructor() {
             this.__state = interpret.apply(this, arguments);
             if (this.__state === false) {
-                throw new Error('Failed to interpret color arguments');
+                throw new Error('Failed tcomponent_from_hexo interpret color arguments');
             }
             this.__state.a = this.__state.a || 1;
         }

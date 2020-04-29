@@ -27,7 +27,16 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "skylark-langx-ns": "git+https://github.com/skylark-langx/skylark-langx-ns.git#master"
+    "skylark-data-color": "git+https://github.com/skylark-data/skylark-data-color.git#master",
+    "skylark-domx-eventer": "git+https://github.com/skylark-domx/skylark-domx-eventer.git#master",
+    "skylark-domx-geom": "git+https://github.com/skylark-domx/skylark-domx-geom.git#master",
+    "skylark-domx-noder": "git+https://github.com/skylark-domx/skylark-domx-noder.git#master",
+    "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
+    "skylark-langx-arrays": "git+https://github.com/skylark-langx/skylark-langx-arrays.git#master",
+    "skylark-langx-funcs": "git+https://github.com/skylark-langx/skylark-langx-funcs.git#master",
+    "skylark-langx-ns": "git+https://github.com/skylark-langx/skylark-langx-ns.git#master",
+    "skylark-langx-objects": "git+https://github.com/skylark-langx/skylark-langx-objects.git#master",
+    "skylark-langx-types": "git+https://github.com/skylark-langx/skylark-langx-types.git#master"
   },
   "engines": {
     "node": ">=0.10.1"
