@@ -86,44 +86,44 @@
 
 })(function(define,require) {
 
-define('skylark-datgui/color/toString',[],function () {
+define('skylark-datgui/controllers/Controller',[],function () {
     'use strict';
-    return function (color, forceCSSHex) {
-        const colorFormat = color.__state.conversionName.toString();
-        const r = Math.round(color.r);
-        const g = Math.round(color.g);
-        const b = Math.round(color.b);
-        const a = color.a;
-        const h = Math.round(color.h);
-        const s = color.s.toFixed(1);
-        const v = color.v.toFixed(1);
-        if (forceCSSHex || colorFormat === 'THREE_CHAR_HEX' || colorFormat === 'SIX_CHAR_HEX') {
-            let str = color.hex.toString(16);
-            while (str.length < 6) {
-                str = '0' + str;
-            }
-            return '#' + str;
-        } else if (colorFormat === 'CSS_RGB') {
-            return 'rgb(' + r + ',' + g + ',' + b + ')';
-        } else if (colorFormat === 'CSS_RGBA') {
-            return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
-        } else if (colorFormat === 'HEX') {
-            return '0x' + color.hex.toString(16);
-        } else if (colorFormat === 'RGB_ARRAY') {
-            return '[' + r + ',' + g + ',' + b + ']';
-        } else if (colorFormat === 'RGBA_ARRAY') {
-            return '[' + r + ',' + g + ',' + b + ',' + a + ']';
-        } else if (colorFormat === 'RGB_OBJ') {
-            return '{r:' + r + ',g:' + g + ',b:' + b + '}';
-        } else if (colorFormat === 'RGBA_OBJ') {
-            return '{r:' + r + ',g:' + g + ',b:' + b + ',a:' + a + '}';
-        } else if (colorFormat === 'HSV_OBJ') {
-            return '{h:' + h + ',s:' + s + ',v:' + v + '}';
-        } else if (colorFormat === 'HSVA_OBJ') {
-            return '{h:' + h + ',s:' + s + ',v:' + v + ',a:' + a + '}';
+    class Controller {
+        constructor(object, property) {
+            this.initialValue = object[property];
+            this.domElement = document.createElement('div');
+            this.object = object;
+            this.property = property;
+            this.__onChange = undefined;
+            this.__onFinishChange = undefined;
         }
-        return 'unknown format';
-    };
+        onChange(fnc) {
+            this.__onChange = fnc;
+            return this;
+        }
+        onFinishChange(fnc) {
+            this.__onFinishChange = fnc;
+            return this;
+        }
+        setValue(newValue) {
+            this.object[this.property] = newValue;
+            if (this.__onChange) {
+                this.__onChange.call(this, newValue);
+            }
+            this.updateDisplay();
+            return this;
+        }
+        getValue() {
+            return this.object[this.property];
+        }
+        updateDisplay() {
+            return this;
+        }
+        isModified() {
+            return this.initialValue !== this.getValue();
+        }
+    }
+    return Controller;
 });
 define('skylark-datgui/utils/common',[
     "skylark-langx-types",
@@ -221,429 +221,6 @@ define('skylark-datgui/utils/common',[
     };
 
     return Common;
-});
-define('skylark-datgui/color/interpret',[
-    './toString',
-    '../utils/common'
-], function (toString, common) {
-    'use strict';
-    const INTERPRETATIONS = [
-        {
-            litmus: common.isString,
-            conversions: {
-                THREE_CHAR_HEX: {
-                    read: function (original) {
-                        const test = original.match(/^#([A-F0-9])([A-F0-9])([A-F0-9])$/i);
-                        if (test === null) {
-                            return false;
-                        }
-                        return {
-                            space: 'HEX',
-                            hex: parseInt('0x' + test[1].toString() + test[1].toString() + test[2].toString() + test[2].toString() + test[3].toString() + test[3].toString(), 0)
-                        };
-                    },
-                    write: toString
-                },
-                SIX_CHAR_HEX: {
-                    read: function (original) {
-                        const test = original.match(/^#([A-F0-9]{6})$/i);
-                        if (test === null) {
-                            return false;
-                        }
-                        return {
-                            space: 'HEX',
-                            hex: parseInt('0x' + test[1].toString(), 0)
-                        };
-                    },
-                    write: toString
-                },
-                CSS_RGB: {
-                    read: function (original) {
-                        const test = original.match(/^rgb\(\s*(.+)\s*,\s*(.+)\s*,\s*(.+)\s*\)/);
-                        if (test === null) {
-                            return false;
-                        }
-                        return {
-                            space: 'RGB',
-                            r: parseFloat(test[1]),
-                            g: parseFloat(test[2]),
-                            b: parseFloat(test[3])
-                        };
-                    },
-                    write: toString
-                },
-                CSS_RGBA: {
-                    read: function (original) {
-                        const test = original.match(/^rgba\(\s*(.+)\s*,\s*(.+)\s*,\s*(.+)\s*,\s*(.+)\s*\)/);
-                        if (test === null) {
-                            return false;
-                        }
-                        return {
-                            space: 'RGB',
-                            r: parseFloat(test[1]),
-                            g: parseFloat(test[2]),
-                            b: parseFloat(test[3]),
-                            a: parseFloat(test[4])
-                        };
-                    },
-                    write: toString
-                }
-            }
-        },
-        {
-            litmus: common.isNumber,
-            conversions: {
-                HEX: {
-                    read: function (original) {
-                        return {
-                            space: 'HEX',
-                            hex: original,
-                            conversionName: 'HEX'
-                        };
-                    },
-                    write: function (color) {
-                        return color.hex;
-                    }
-                }
-            }
-        },
-        {
-            litmus: common.isArray,
-            conversions: {
-                RGB_ARRAY: {
-                    read: function (original) {
-                        if (original.length !== 3) {
-                            return false;
-                        }
-                        return {
-                            space: 'RGB',
-                            r: original[0],
-                            g: original[1],
-                            b: original[2]
-                        };
-                    },
-                    write: function (color) {
-                        return [
-                            color.r,
-                            color.g,
-                            color.b
-                        ];
-                    }
-                },
-                RGBA_ARRAY: {
-                    read: function (original) {
-                        if (original.length !== 4)
-                            return false;
-                        return {
-                            space: 'RGB',
-                            r: original[0],
-                            g: original[1],
-                            b: original[2],
-                            a: original[3]
-                        };
-                    },
-                    write: function (color) {
-                        return [
-                            color.r,
-                            color.g,
-                            color.b,
-                            color.a
-                        ];
-                    }
-                }
-            }
-        },
-        {
-            litmus: common.isObject,
-            conversions: {
-                RGBA_OBJ: {
-                    read: function (original) {
-                        if (common.isNumber(original.r) && common.isNumber(original.g) && common.isNumber(original.b) && common.isNumber(original.a)) {
-                            return {
-                                space: 'RGB',
-                                r: original.r,
-                                g: original.g,
-                                b: original.b,
-                                a: original.a
-                            };
-                        }
-                        return false;
-                    },
-                    write: function (color) {
-                        return {
-                            r: color.r,
-                            g: color.g,
-                            b: color.b,
-                            a: color.a
-                        };
-                    }
-                },
-                RGB_OBJ: {
-                    read: function (original) {
-                        if (common.isNumber(original.r) && common.isNumber(original.g) && common.isNumber(original.b)) {
-                            return {
-                                space: 'RGB',
-                                r: original.r,
-                                g: original.g,
-                                b: original.b
-                            };
-                        }
-                        return false;
-                    },
-                    write: function (color) {
-                        return {
-                            r: color.r,
-                            g: color.g,
-                            b: color.b
-                        };
-                    }
-                },
-                HSVA_OBJ: {
-                    read: function (original) {
-                        if (common.isNumber(original.h) && common.isNumber(original.s) && common.isNumber(original.v) && common.isNumber(original.a)) {
-                            return {
-                                space: 'HSV',
-                                h: original.h,
-                                s: original.s,
-                                v: original.v,
-                                a: original.a
-                            };
-                        }
-                        return false;
-                    },
-                    write: function (color) {
-                        return {
-                            h: color.h,
-                            s: color.s,
-                            v: color.v,
-                            a: color.a
-                        };
-                    }
-                },
-                HSV_OBJ: {
-                    read: function (original) {
-                        if (common.isNumber(original.h) && common.isNumber(original.s) && common.isNumber(original.v)) {
-                            return {
-                                space: 'HSV',
-                                h: original.h,
-                                s: original.s,
-                                v: original.v
-                            };
-                        }
-                        return false;
-                    },
-                    write: function (color) {
-                        return {
-                            h: color.h,
-                            s: color.s,
-                            v: color.v
-                        };
-                    }
-                }
-            }
-        }
-    ];
-    let result;
-    let toReturn;
-    const interpret = function () {
-        toReturn = false;
-        const original = arguments.length > 1 ? common.toArray(arguments) : arguments[0];
-        common.each(INTERPRETATIONS, function (family) {
-            if (family.litmus(original)) {
-                common.each(family.conversions, function (conversion, conversionName) {
-                    result = conversion.read(original);
-                    if (toReturn === false && result !== false) {
-                        toReturn = result;
-                        result.conversionName = conversionName;
-                        result.conversion = conversion;
-                        return common.BREAK;
-                    }
-                });
-                return common.BREAK;
-            }
-        });
-        return toReturn;
-    };
-    return interpret;
-});
-define('skylark-datgui/color/math',[
-    "skylark-data-color"
-], function (colors) {
-    'use strict';
-    let tmpComponent;
-    const ColorMath = {
-        hsv_to_rgb: colors.hsvToRgb,
-        rgb_to_hsv: colors.rgbToHsv,
-        rgb_to_hex: colors.rgbToHex,
-        
-        component_from_hex: function (hex, componentIndex) {
-            return hex >> componentIndex * 8 & 255;
-        },
-        hex_with_component: function (hex, componentIndex, value) {
-            return value << (tmpComponent = componentIndex * 8) | hex & ~(255 << tmpComponent);
-        }
-    };
-    return ColorMath;
-});
-define('skylark-datgui/color/Color',[
-    './interpret',
-    './math',
-    './toString',
-    '../utils/common'
-], function (interpret, math, colorToString, common) {
-    'use strict';
-    class Color  {
-        constructor() {
-            this.__state = interpret.apply(this, arguments);
-            if (this.__state === false) {
-                throw new Error('Failed tcomponent_from_hexo interpret color arguments');
-            }
-            this.__state.a = this.__state.a || 1;
-        }
-        toString() {
-            return colorToString(this);
-        }
-        toHexString() {
-            return colorToString(this, true);
-        }
-        toOriginal() {
-            return this.__state.conversion.write(this);
-        }
-    }
-    function defineRGBComponent(target, component, componentHexIndex) {
-        Object.defineProperty(target, component, {
-            get: function () {
-                if (this.__state.space === 'RGB') {
-                    return this.__state[component];
-                }
-                Color.recalculateRGB(this, component, componentHexIndex);
-                return this.__state[component];
-            },
-            set: function (v) {
-                if (this.__state.space !== 'RGB') {
-                    Color.recalculateRGB(this, component, componentHexIndex);
-                    this.__state.space = 'RGB';
-                }
-                this.__state[component] = v;
-            }
-        });
-    }
-    function defineHSVComponent(target, component) {
-        Object.defineProperty(target, component, {
-            get: function () {
-                if (this.__state.space === 'HSV') {
-                    return this.__state[component];
-                }
-                Color.recalculateHSV(this);
-                return this.__state[component];
-            },
-            set: function (v) {
-                if (this.__state.space !== 'HSV') {
-                    Color.recalculateHSV(this);
-                    this.__state.space = 'HSV';
-                }
-                this.__state[component] = v;
-            }
-        });
-    }
-    Color.recalculateRGB = function (color, component, componentHexIndex) {
-        if (color.__state.space === 'HEX') {
-            color.__state[component] = math.component_from_hex(color.__state.hex, componentHexIndex);
-        } else if (color.__state.space === 'HSV') {
-            common.extend(color.__state, math.hsv_to_rgb(color.__state.h, color.__state.s, color.__state.v));
-        } else {
-            throw new Error('Corrupted color state');
-        }
-    };
-    Color.recalculateHSV = function (color) {
-        const result = math.rgb_to_hsv(color.r, color.g, color.b);
-        common.extend(color.__state, {
-            s: result.s,
-            v: result.v
-        });
-        if (!common.isNaN(result.h)) {
-            color.__state.h = result.h;
-        } else if (common.isUndefined(color.__state.h)) {
-            color.__state.h = 0;
-        }
-    };
-    Color.COMPONENTS = [
-        'r',
-        'g',
-        'b',
-        'h',
-        's',
-        'v',
-        'hex',
-        'a'
-    ];
-    defineRGBComponent(Color.prototype, 'r', 2);
-    defineRGBComponent(Color.prototype, 'g', 1);
-    defineRGBComponent(Color.prototype, 'b', 0);
-    defineHSVComponent(Color.prototype, 'h');
-    defineHSVComponent(Color.prototype, 's');
-    defineHSVComponent(Color.prototype, 'v');
-    Object.defineProperty(Color.prototype, 'a', {
-        get: function () {
-            return this.__state.a;
-        },
-        set: function (v) {
-            this.__state.a = v;
-        }
-    });
-    Object.defineProperty(Color.prototype, 'hex', {
-        get: function () {
-            if (this.__state.space !== 'HEX') {
-                this.__state.hex = math.rgb_to_hex(this.r, this.g, this.b);
-                this.__state.space = 'HEX';
-            }
-            return this.__state.hex;
-        },
-        set: function (v) {
-            this.__state.space = 'HEX';
-            this.__state.hex = v;
-        }
-    });
-    return Color;
-});
-define('skylark-datgui/controllers/Controller',[],function () {
-    'use strict';
-    class Controller {
-        constructor(object, property) {
-            this.initialValue = object[property];
-            this.domElement = document.createElement('div');
-            this.object = object;
-            this.property = property;
-            this.__onChange = undefined;
-            this.__onFinishChange = undefined;
-        }
-        onChange(fnc) {
-            this.__onChange = fnc;
-            return this;
-        }
-        onFinishChange(fnc) {
-            this.__onFinishChange = fnc;
-            return this;
-        }
-        setValue(newValue) {
-            this.object[this.property] = newValue;
-            if (this.__onChange) {
-                this.__onChange.call(this, newValue);
-            }
-            this.updateDisplay();
-            return this;
-        }
-        getValue() {
-            return this.object[this.property];
-        }
-        updateDisplay() {
-            return this;
-        }
-        isModified() {
-            return this.initialValue !== this.getValue();
-        }
-    }
-    return Controller;
 });
 define('skylark-datgui/dom/dom',[
     "skylark-domx-noder",
@@ -1103,258 +680,40 @@ define('skylark-datgui/controllers/FunctionController',[
 });
 define('skylark-datgui/controllers/ColorController',[
     './Controller',
-    '../dom/dom',
-    '../color/Color',
-    '../color/interpret',
-    '../utils/common'
-], function (Controller, dom, Color, interpret, common) {
+    '../dom/dom'
+], function (Controller, dom) {
     'use strict';
     class ColorController extends Controller {
         constructor(object, property) {
             super(object, property);
-            this.__color = new Color(this.getValue());
-            this.__temp = new Color(0);
             const _this = this;
-            this.domElement = document.createElement('div');
-            dom.makeSelectable(this.domElement, false);
-            this.__selector = document.createElement('div');
-            this.__selector.className = 'selector';
-            this.__saturation_field = document.createElement('div');
-            this.__saturation_field.className = 'saturation-field';
-            this.__field_knob = document.createElement('div');
-            this.__field_knob.className = 'field-knob';
-            this.__field_knob_border = '2px solid ';
-            this.__hue_knob = document.createElement('div');
-            this.__hue_knob.className = 'hue-knob';
-            this.__hue_field = document.createElement('div');
-            this.__hue_field.className = 'hue-field';
-            this.__input = document.createElement('input');
-            this.__input.type = 'text';
-            this.__input_textShadow = '0 1px 1px ';
-            dom.bind(this.__input, 'keydown', function (e) {
-                if (e.keyCode === 13) {
-                    onBlur.call(this);
-                }
-            });
-            dom.bind(this.__input, 'blur', onBlur);
-            dom.bind(this.__selector, 'mousedown', function () {
-                dom.addClass(this, 'drag').bind(window, 'mouseup', function () {
-                    dom.removeClass(_this.__selector, 'drag');
-                });
-            });
-            dom.bind(this.__selector, 'touchstart', function () {
-                dom.addClass(this, 'drag').bind(window, 'touchend', function () {
-                    dom.removeClass(_this.__selector, 'drag');
-                });
-            });
-            const valueField = document.createElement('div');
-            common.extend(this.__selector.style, {
-                width: '122px',
-                height: '102px',
-                padding: '3px',
-                backgroundColor: '#222',
-                boxShadow: '0px 1px 3px rgba(0,0,0,0.3)'
-            });
-            common.extend(this.__field_knob.style, {
-                position: 'absolute',
-                width: '12px',
-                height: '12px',
-                border: this.__field_knob_border + (this.__color.v < 0.5 ? '#fff' : '#000'),
-                boxShadow: '0px 1px 3px rgba(0,0,0,0.5)',
-                borderRadius: '12px',
-                zIndex: 1
-            });
-            common.extend(this.__hue_knob.style, {
-                position: 'absolute',
-                width: '15px',
-                height: '2px',
-                borderRight: '4px solid #fff',
-                zIndex: 1
-            });
-            common.extend(this.__saturation_field.style, {
-                width: '100px',
-                height: '100px',
-                border: '1px solid #555',
-                marginRight: '3px',
-                display: 'inline-block',
-                cursor: 'pointer'
-            });
-            common.extend(valueField.style, {
-                width: '100%',
-                height: '100%',
-                background: 'none'
-            });
-            linearGradient(valueField, 'top', 'rgba(0,0,0,0)', '#000');
-            common.extend(this.__hue_field.style, {
-                width: '15px',
-                height: '100px',
-                border: '1px solid #555',
-                cursor: 'ns-resize',
-                position: 'absolute',
-                top: '3px',
-                right: '3px'
-            });
-            hueGradient(this.__hue_field);
-            common.extend(this.__input.style, {
-                outline: 'none',
-                textAlign: 'center',
-                color: '#fff',
-                border: 0,
-                fontWeight: 'bold',
-                textShadow: this.__input_textShadow + 'rgba(0,0,0,0.7)'
-            });
-            dom.bind(this.__saturation_field, 'mousedown', fieldDown);
-            dom.bind(this.__saturation_field, 'touchstart', fieldDown);
-            dom.bind(this.__field_knob, 'mousedown', fieldDown);
-            dom.bind(this.__field_knob, 'touchstart', fieldDown);
-            dom.bind(this.__hue_field, 'mousedown', fieldDownH);
-            dom.bind(this.__hue_field, 'touchstart', fieldDownH);
-            function fieldDown(e) {
-                setSV(e);
-                dom.bind(window, 'mousemove', setSV);
-                dom.bind(window, 'touchmove', setSV);
-                dom.bind(window, 'mouseup', fieldUpSV);
-                dom.bind(window, 'touchend', fieldUpSV);
-            }
-            function fieldDownH(e) {
-                setH(e);
-                dom.bind(window, 'mousemove', setH);
-                dom.bind(window, 'touchmove', setH);
-                dom.bind(window, 'mouseup', fieldUpH);
-                dom.bind(window, 'touchend', fieldUpH);
-            }
-            function fieldUpSV() {
-                dom.unbind(window, 'mousemove', setSV);
-                dom.unbind(window, 'touchmove', setSV);
-                dom.unbind(window, 'mouseup', fieldUpSV);
-                dom.unbind(window, 'touchend', fieldUpSV);
-                onFinish();
-            }
-            function fieldUpH() {
-                dom.unbind(window, 'mousemove', setH);
-                dom.unbind(window, 'touchmove', setH);
-                dom.unbind(window, 'mouseup', fieldUpH);
-                dom.unbind(window, 'touchend', fieldUpH);
-                onFinish();
+            function onChange() {
+                _this.setValue(_this.__input.value);
             }
             function onBlur() {
-                const i = interpret(this.value);
-                if (i !== false) {
-                    _this.__color.__state = i;
-                    _this.setValue(_this.__color.toOriginal());
-                } else {
-                    this.value = _this.__color.toString();
-                }
-            }
-            function onFinish() {
                 if (_this.__onFinishChange) {
-                    _this.__onFinishChange.call(_this, _this.__color.toOriginal());
+                    _this.__onFinishChange.call(_this, _this.getValue());
                 }
             }
-            this.__saturation_field.appendChild(valueField);
-            this.__selector.appendChild(this.__field_knob);
-            this.__selector.appendChild(this.__saturation_field);
-            this.__selector.appendChild(this.__hue_field);
-            this.__hue_field.appendChild(this.__hue_knob);
-            this.domElement.appendChild(this.__input);
-            this.domElement.appendChild(this.__selector);
+            this.__input = document.createElement('input');
+            this.__input.setAttribute('type', 'color');
+            dom.bind(this.__input, 'keyup', onChange);
+            dom.bind(this.__input, 'change', onChange);
+            dom.bind(this.__input, 'blur', onBlur);
+            dom.bind(this.__input, 'keydown', function (e) {
+                if (e.keyCode === 13) {
+                    this.blur();
+                }
+            });
             this.updateDisplay();
-            function setSV(e) {
-                if (e.type.indexOf('touch') === -1) {
-                    e.preventDefault();
-                }
-                const fieldRect = _this.__saturation_field.getBoundingClientRect();
-                const {clientX, clientY} = e.touches && e.touches[0] || e;
-                let s = (clientX - fieldRect.left) / (fieldRect.right - fieldRect.left);
-                let v = 1 - (clientY - fieldRect.top) / (fieldRect.bottom - fieldRect.top);
-                if (v > 1) {
-                    v = 1;
-                } else if (v < 0) {
-                    v = 0;
-                }
-                if (s > 1) {
-                    s = 1;
-                } else if (s < 0) {
-                    s = 0;
-                }
-                _this.__color.v = v;
-                _this.__color.s = s;
-                _this.setValue(_this.__color.toOriginal());
-                return false;
-            }
-            function setH(e) {
-                if (e.type.indexOf('touch') === -1) {
-                    e.preventDefault();
-                }
-                const fieldRect = _this.__hue_field.getBoundingClientRect();
-                const {clientY} = e.touches && e.touches[0] || e;
-                let h = 1 - (clientY - fieldRect.top) / (fieldRect.bottom - fieldRect.top);
-                if (h > 1) {
-                    h = 1;
-                } else if (h < 0) {
-                    h = 0;
-                }
-                _this.__color.h = h * 360;
-                _this.setValue(_this.__color.toOriginal());
-                return false;
-            }
+            this.domElement.appendChild(this.__input);
         }
         updateDisplay() {
-            const i = interpret(this.getValue());
-            if (i !== false) {
-                let mismatch = false;
-                common.each(Color.COMPONENTS, function (component) {
-                    if (!common.isUndefined(i[component]) && !common.isUndefined(this.__color.__state[component]) && i[component] !== this.__color.__state[component]) {
-                        mismatch = true;
-                        return {};
-                    }
-                }, this);
-                if (mismatch) {
-                    common.extend(this.__color.__state, i);
-                }
+            if (!dom.isActive(this.__input)) {
+                this.__input.value = this.getValue();
             }
-            common.extend(this.__temp.__state, this.__color.__state);
-            this.__temp.a = 1;
-            const flip = this.__color.v < 0.5 || this.__color.s > 0.5 ? 255 : 0;
-            const _flip = 255 - flip;
-            common.extend(this.__field_knob.style, {
-                marginLeft: 100 * this.__color.s - 7 + 'px',
-                marginTop: 100 * (1 - this.__color.v) - 7 + 'px',
-                backgroundColor: this.__temp.toHexString(),
-                border: this.__field_knob_border + 'rgb(' + flip + ',' + flip + ',' + flip + ')'
-            });
-            this.__hue_knob.style.marginTop = (1 - this.__color.h / 360) * 100 + 'px';
-            this.__temp.s = 1;
-            this.__temp.v = 1;
-            linearGradient(this.__saturation_field, 'left', '#fff', this.__temp.toHexString());
-            this.__input.value = this.__color.toString();
-            common.extend(this.__input.style, {
-                backgroundColor: this.__color.toHexString(),
-                color: 'rgb(' + flip + ',' + flip + ',' + flip + ')',
-                textShadow: this.__input_textShadow + 'rgba(' + _flip + ',' + _flip + ',' + _flip + ',.7)'
-            });
+            return super.updateDisplay();
         }
-    }
-    const vendors = [
-        '-moz-',
-        '-o-',
-        '-webkit-',
-        '-ms-',
-        ''
-    ];
-    function linearGradient(elem, x, a, b) {
-        elem.style.background = '';
-        common.each(vendors, function (vendor) {
-            elem.style.cssText += 'background: ' + vendor + 'linear-gradient(' + x + ', ' + a + ' 0%, ' + b + ' 100%); ';
-        });
-    }
-    function hueGradient(elem) {
-        elem.style.background = '';
-        elem.style.cssText += 'background: -moz-linear-gradient(top,  #ff0000 0%, #ff00ff 17%, #0000ff 34%, #00ffff 50%, #00ff00 67%, #ffff00 84%, #ff0000 100%);';
-        elem.style.cssText += 'background: -webkit-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);';
-        elem.style.cssText += 'background: -o-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);';
-        elem.style.cssText += 'background: -ms-linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);';
-        elem.style.cssText += 'background: linear-gradient(top,  #ff0000 0%,#ff00ff 17%,#0000ff 34%,#00ffff 50%,#00ff00 67%,#ffff00 84%,#ff0000 100%);';
     }
     return ColorController;
 });
@@ -2148,7 +1507,7 @@ define('skylark-datgui/gui/GUI',[
         } else if (controller instanceof ColorController) {
             dom.addClass(li, 'color');
             controller.updateDisplay = common.compose(function (val) {
-                li.style.borderLeftColor = controller.__color.toString();
+                li.style.borderLeftColor = controller.getValue(); //controller.__color.toString();
                 return val;
             }, controller.updateDisplay);
             controller.updateDisplay();
@@ -2393,9 +1752,6 @@ define('skylark-datgui/gui/GUI',[
 });
 define('skylark-datgui/main',[
     "skylark-langx-ns",
-    './color/Color',
-    './color/math',
-    './color/interpret',
     './controllers/Controller',
     './controllers/BooleanController',
     './controllers/OptionController',
@@ -2407,13 +1763,9 @@ define('skylark-datgui/main',[
     './controllers/ColorController',
     './dom/dom',
     './gui/GUI'
-], function (skylark,Color, math, interpret, Controller, BooleanController, OptionController, StringController, NumberController, NumberControllerBox, NumberControllerSlider, FunctionController, ColorController, domImport, GUIImport) {
+], function (skylark,Controller, BooleanController, OptionController, StringController, NumberController, NumberControllerBox, NumberControllerSlider, FunctionController, ColorController, domImport, GUIImport) {
     'use strict';
-    const color = {
-        Color: Color,
-        math: math,
-        interpret: interpret
-    };
+
     const controllers = {
         Controller: Controller,
         BooleanController: BooleanController,
@@ -2429,7 +1781,6 @@ define('skylark-datgui/main',[
     const gui = { GUI: GUIImport };
     const GUI = GUIImport;
     return skylark.attach("intg.datgui",{
-        color,
         controllers,
         dom,
         gui,

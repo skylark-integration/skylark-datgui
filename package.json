@@ -10,7 +10,7 @@
   "homepage": "https://github.com/skylark-integration/skylark-datgui/",
   "author": "Hudaokeji, Inc.",
   "scripts": {
-    "build": "sbundle build ."
+    "build": "slib build ."
   },
   "repository": {
     "type": "git",
@@ -27,11 +27,12 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "skylark-data-color": "git+https://github.com/skylark-data/skylark-data-color.git#master",
+    "skylark-domx-colors": "git+https://github.com/skylark-domx/skylark-domx-colors.git#master",
     "skylark-domx-eventer": "git+https://github.com/skylark-domx/skylark-domx-eventer.git#master",
     "skylark-domx-geom": "git+https://github.com/skylark-domx/skylark-domx-geom.git#master",
     "skylark-domx-noder": "git+https://github.com/skylark-domx/skylark-domx-noder.git#master",
     "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
+    "skylark-graphics-color": "git+https://github.com/skylark-graphics/skylark-graphics-color.git#master",
     "skylark-langx-arrays": "git+https://github.com/skylark-langx/skylark-langx-arrays.git#master",
     "skylark-langx-funcs": "git+https://github.com/skylark-langx/skylark-langx-funcs.git#master",
     "skylark-langx-ns": "git+https://github.com/skylark-langx/skylark-langx-ns.git#master",
@@ -40,5 +41,26 @@
   },
   "engines": {
     "node": ">=0.10.1"
+  },
+  "skylarkjs": {
+    "directories": {
+      "dependencies": "./node_modules"
+    },
+    "secondaries": {},
+    "build": {
+      "prepare": {
+        "texttojs": [
+          "html",
+          "json",
+          "css"
+        ],
+        "jsxtojs": false,
+        "es6toamd": false,
+        "cjstoamd": false
+      },
+      "bundles": {
+        "all": true
+      }
+    }
   }
 }
