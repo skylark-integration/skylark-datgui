@@ -362,6 +362,144 @@ define('skylark-langx-types/types',[
         return obj === void 0;
     }
 
+
+    var INFINITY = 1 / 0,
+        MAX_SAFE_INTEGER = 9007199254740991,
+        MAX_INTEGER = 1.7976931348623157e+308,
+        NAN = 0 / 0;
+
+    /** Used to match leading and trailing whitespace. */
+    var reTrim = /^\s+|\s+$/g;
+
+    /** Used to detect bad signed hexadecimal string values. */
+    var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+
+    /** Used to detect binary string values. */
+    var reIsBinary = /^0b[01]+$/i;
+
+    /** Used to detect octal string values. */
+    var reIsOctal = /^0o[0-7]+$/i;
+
+    /** Used to detect unsigned integer values. */
+    var reIsUint = /^(?:0|[1-9]\d*)$/;
+
+    /** Built-in method references without a dependency on `root`. */
+    var freeParseInt = parseInt;
+
+    /**
+     * Converts `value` to a finite number.
+     *
+     * @static
+     * @memberOf _
+     * @since 4.12.0
+     * @category Lang
+     * @param {*} value The value to convert.
+     * @returns {number} Returns the converted number.
+     * @example
+     *
+     * _.toFinite(3.2);
+     * // => 3.2
+     *
+     * _.toFinite(Number.MIN_VALUE);
+     * // => 5e-324
+     *
+     * _.toFinite(Infinity);
+     * // => 1.7976931348623157e+308
+     *
+     * _.toFinite('3.2');
+     * // => 3.2
+     */
+    function toFinite(value) {
+      if (!value) {
+        return value === 0 ? value : 0;
+      }
+      value = toNumber(value);
+      if (value === INFINITY || value === -INFINITY) {
+        var sign = (value < 0 ? -1 : 1);
+        return sign * MAX_INTEGER;
+      }
+      return value === value ? value : 0;
+    }
+
+    /**
+     * Converts `value` to an integer.
+     *
+     * **Note:** This method is loosely based on
+     * [`ToInteger`](http://www.ecma-international.org/ecma-262/7.0/#sec-tointeger).
+     *
+     * @static
+     * @memberOf _
+     * @param {*} value The value to convert.
+     * @returns {number} Returns the converted integer.
+     * @example
+     *
+     * _.toInteger(3.2);
+     * // => 3
+     *
+     * _.toInteger(Number.MIN_VALUE);
+     * // => 0
+     *
+     * _.toInteger(Infinity);
+     * // => 1.7976931348623157e+308
+     *
+     * _.toInteger('3.2');
+     * // => 3
+     */
+    function toInteger(value) {
+      var result = toFinite(value),
+          remainder = result % 1;
+
+      return result === result ? (remainder ? result - remainder : result) : 0;
+    }   
+
+    /**
+     * Converts `value` to a number.
+     *
+     * @static
+     * @memberOf _
+     * @since 4.0.0
+     * @category Lang
+     * @param {*} value The value to process.
+     * @returns {number} Returns the number.
+     * @example
+     *
+     * _.toNumber(3.2);
+     * // => 3.2
+     *
+     * _.toNumber(Number.MIN_VALUE);
+     * // => 5e-324
+     *
+     * _.toNumber(Infinity);
+     * // => Infinity
+     *
+     * _.toNumber('3.2');
+     * // => 3.2
+     */
+    function toNumber(value) {
+      if (typeof value == 'number') {
+        return value;
+      }
+      if (isSymbol(value)) {
+        return NAN;
+      }
+      if (isObject(value)) {
+        var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
+        value = isObject(other) ? (other + '') : other;
+      }
+      if (typeof value != 'string') {
+        return value === 0 ? value : +value;
+      }
+      value = value.replace(reTrim, '');
+      var isBinary = reIsBinary.test(value);
+      return (isBinary || reIsOctal.test(value))
+        ? freeParseInt(value.slice(2), isBinary ? 2 : 8)
+        : (reIsBadHex.test(value) ? NAN : +value);
+    }
+
+
+
+
+
     return skylark.attach("langx.types",{
 
         isArray: isArray,
@@ -409,7 +547,12 @@ define('skylark-langx-types/types',[
 
         isWindow: isWindow,
 
-        type: type
+        type: type,
+
+        toFinite : toFinite,
+        toNumber : toNumber,
+        toInteger : toInteger
+        
     });
 
 });
@@ -420,175 +563,20 @@ define('skylark-langx-types/main',[
 });
 define('skylark-langx-types', ['skylark-langx-types/main'], function (main) { return main; });
 
-define('skylark-langx-numbers/numbers',[
+define('skylark-langx-objects/objects',[
     "skylark-langx-ns",
     "skylark-langx-types"
 ],function(skylark,types){
-	var isObject = types.isObject,
-		isSymbol = types.isSymbol;
-
-	var INFINITY = 1 / 0,
-	    MAX_SAFE_INTEGER = 9007199254740991,
-	    MAX_INTEGER = 1.7976931348623157e+308,
-	    NAN = 0 / 0;
-
-	/** Used to match leading and trailing whitespace. */
-	var reTrim = /^\s+|\s+$/g;
-
-	/** Used to detect bad signed hexadecimal string values. */
-	var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-
-	/** Used to detect binary string values. */
-	var reIsBinary = /^0b[01]+$/i;
-
-	/** Used to detect octal string values. */
-	var reIsOctal = /^0o[0-7]+$/i;
-
-	/** Used to detect unsigned integer values. */
-	var reIsUint = /^(?:0|[1-9]\d*)$/;
-
-	/** Built-in method references without a dependency on `root`. */
-	var freeParseInt = parseInt;
-
-	/**
-	 * Converts `value` to a finite number.
-	 *
-	 * @static
-	 * @memberOf _
-	 * @since 4.12.0
-	 * @category Lang
-	 * @param {*} value The value to convert.
-	 * @returns {number} Returns the converted number.
-	 * @example
-	 *
-	 * _.toFinite(3.2);
-	 * // => 3.2
-	 *
-	 * _.toFinite(Number.MIN_VALUE);
-	 * // => 5e-324
-	 *
-	 * _.toFinite(Infinity);
-	 * // => 1.7976931348623157e+308
-	 *
-	 * _.toFinite('3.2');
-	 * // => 3.2
-	 */
-	function toFinite(value) {
-	  if (!value) {
-	    return value === 0 ? value : 0;
-	  }
-	  value = toNumber(value);
-	  if (value === INFINITY || value === -INFINITY) {
-	    var sign = (value < 0 ? -1 : 1);
-	    return sign * MAX_INTEGER;
-	  }
-	  return value === value ? value : 0;
-	}
-
-	/**
-	 * Converts `value` to an integer.
-	 *
-	 * **Note:** This method is loosely based on
-	 * [`ToInteger`](http://www.ecma-international.org/ecma-262/7.0/#sec-tointeger).
-	 *
-	 * @static
-	 * @memberOf _
-	 * @param {*} value The value to convert.
-	 * @returns {number} Returns the converted integer.
-	 * @example
-	 *
-	 * _.toInteger(3.2);
-	 * // => 3
-	 *
-	 * _.toInteger(Number.MIN_VALUE);
-	 * // => 0
-	 *
-	 * _.toInteger(Infinity);
-	 * // => 1.7976931348623157e+308
-	 *
-	 * _.toInteger('3.2');
-	 * // => 3
-	 */
-	function toInteger(value) {
-	  var result = toFinite(value),
-	      remainder = result % 1;
-
-	  return result === result ? (remainder ? result - remainder : result) : 0;
-	}	
-
-	/**
-	 * Converts `value` to a number.
-	 *
-	 * @static
-	 * @memberOf _
-	 * @since 4.0.0
-	 * @category Lang
-	 * @param {*} value The value to process.
-	 * @returns {number} Returns the number.
-	 * @example
-	 *
-	 * _.toNumber(3.2);
-	 * // => 3.2
-	 *
-	 * _.toNumber(Number.MIN_VALUE);
-	 * // => 5e-324
-	 *
-	 * _.toNumber(Infinity);
-	 * // => Infinity
-	 *
-	 * _.toNumber('3.2');
-	 * // => 3.2
-	 */
-	function toNumber(value) {
-	  if (typeof value == 'number') {
-	    return value;
-	  }
-	  if (isSymbol(value)) {
-	    return NAN;
-	  }
-	  if (isObject(value)) {
-	    var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
-	    value = isObject(other) ? (other + '') : other;
-	  }
-	  if (typeof value != 'string') {
-	    return value === 0 ? value : +value;
-	  }
-	  value = value.replace(reTrim, '');
-	  var isBinary = reIsBinary.test(value);
-	  return (isBinary || reIsOctal.test(value))
-	    ? freeParseInt(value.slice(2), isBinary ? 2 : 8)
-	    : (reIsBadHex.test(value) ? NAN : +value);
-	}
-
-	return  skylark.attach("langx.numbers",{
-		toFinite : toFinite,
-		toNumber : toNumber,
-		toInteger : toInteger
-	});
-});
-define('skylark-langx-numbers/main',[
-	"./numbers"
-],function(numbers){
-	return numbers;
-});
-define('skylark-langx-numbers', ['skylark-langx-numbers/main'], function (main) { return main; });
-
-define('skylark-langx-objects/objects',[
-    "skylark-langx-ns/ns",
-    "skylark-langx-ns/_attach",
-	"skylark-langx-types",
-    "skylark-langx-numbers"
-],function(skylark,_attach,types,numbers){
-	var hasOwnProperty = Object.prototype.hasOwnProperty,
+    var hasOwnProperty = Object.prototype.hasOwnProperty,
         slice = Array.prototype.slice,
         isBoolean = types.isBoolean,
         isFunction = types.isFunction,
-		isObject = types.isObject,
-		isPlainObject = types.isPlainObject,
-		isArray = types.isArray,
+        isObject = types.isObject,
+        isPlainObject = types.isPlainObject,
+        isArray = types.isArray,
         isArrayLike = types.isArrayLike,
         isString = types.isString,
-        toInteger = numbers.toInteger;
+        toInteger = types.toInteger;
 
      // An internal function for creating assigner functions.
     function createAssigner(keysFunc, defaults) {
@@ -1017,10 +1005,18 @@ define('skylark-langx-objects/objects',[
 
     }
 
+    function scall(obj,method,arg1,arg2) {
+        if (obj && obj[method]) {
+            var args = slice.call(arguments, 2);
+
+            return obj[method].apply(obj,args);
+        }
+    }
+
     return skylark.attach("langx.objects",{
         allKeys: allKeys,
 
-        attach : _attach,
+        attach : skylark.attach,
 
         clone: clone,
 
@@ -1052,6 +1048,8 @@ define('skylark-langx-objects/objects',[
         
         safeMixin: safeMixin,
 
+        scall,
+
         values: values
     });
 
@@ -1065,13 +1063,13 @@ define('skylark-langx-objects/main',[
 define('skylark-langx-objects', ['skylark-langx-objects/main'], function (main) { return main; });
 
 define('skylark-langx-arrays/arrays',[
-  "skylark-langx-ns/ns",
+  "skylark-langx-ns",
   "skylark-langx-types",
   "skylark-langx-objects"
 ],function(skylark,types,objects){
-  var filter = Array.prototype.filter,
-      find = Array.prototype.find,
-    isArrayLike = types.isArrayLike;
+    var filter = Array.prototype.filter,
+        find = Array.prototype.find,
+        isArrayLike = types.isArrayLike;
 
     /**
      * The base implementation of `_.findIndex` and `_.findLastIndex` without
@@ -1283,7 +1281,9 @@ define('skylark-langx-arrays/arrays',[
 
         inArray: inArray,
 
-        makeArray: makeArray,
+        makeArray: makeArray, // 
+
+        toArray : makeArray,
 
         merge : merge,
 
@@ -2055,26 +2055,235 @@ define('skylark-langx/aspect',[
   return aspect;
 });
 define('skylark-langx-funcs/funcs',[
-  "skylark-langx-ns/ns",
-  "skylark-langx-types",
-  "skylark-langx-objects"
+  "skylark-langx-ns",
 ],function(skylark,types,objects){
-	var mixin = objects.mixin,
-        slice = Array.prototype.slice,
-        isFunction = types.isFunction,
-        isString = types.isString;
+        
 
-    function defer(fn) {
-        if (requestAnimationFrame) {
-            requestAnimationFrame(fn);
-        } else {
-            setTimeoutout(fn);
-        }
-        return this;
-    }
+
 
     function noop() {
     }
+
+
+
+
+    return skylark.attach("langx.funcs",{
+        noop : noop,
+
+        returnTrue: function() {
+            return true;
+        },
+
+        returnFalse: function() {
+            return false;
+        }
+
+    });
+});
+define('skylark-langx-funcs/defer',[
+    "./funcs"
+],function(funcs){
+    function defer(fn,args,context) {
+        var ret = {
+            stop : null
+        },
+        id,
+        fn1 = fn;
+
+        if (args) {
+            fn1 = function() {
+                fn.apply(context,args);
+            };
+        }
+        if (requestAnimationFrame) {
+            id = requestAnimationFrame(fn1);
+            ret.stop = function() {
+                return cancelAnimationFrame(id);
+            };
+        } else {
+            id = setTimeoutout(fn1);
+            ret.stop = function() {
+                return clearTimeout(id);
+            };
+        }
+        return ret;
+    }
+
+    return funcs.defer = defer;
+});
+define('skylark-langx-funcs/debounce',[
+	"./funcs",
+    "./defer"
+],function(funcs,defer){
+   
+    function debounce(fn, wait,useAnimationFrame) {
+        var timeout,
+            defered;
+
+        return function () {
+            var context = this, args = arguments;
+            var later = function () {
+                timeout = null;
+                if (useAnimationFrame) {
+                    defered = defer(fn,args,context);
+                } else {
+                    fn.apply(context, args);
+                }
+            };
+
+            function stop() {
+                if (timeout) {
+                    clearTimeout(timeout);
+                }
+                if (defered) {
+                    defered.stop();
+                }
+                timeout = void 0;
+                defered = void 0;
+            }
+
+            stop();
+            timeout = setTimeout(later, wait);
+
+            return {
+                stop 
+            };
+        };
+    }
+
+    return funcs.debounce = debounce;
+
+});
+define('skylark-langx-funcs/delegate',[
+  "skylark-langx-objects",
+  "./funcs"
+],function(objects,funcs){
+	var mixin = objects.mixin;
+
+    var delegate = (function() {
+        // boodman/crockford delegation w/ cornford optimization
+        function TMP() {}
+        return function(obj, props) {
+            TMP.prototype = obj;
+            var tmp = new TMP();
+            TMP.prototype = null;
+            if (props) {
+                mixin(tmp, props);
+            }
+            return tmp; // Object
+        };
+    })();
+
+    return funcs.delegate = delegate;
+
+});
+define('skylark-langx-funcs/loop',[
+	"./funcs"
+],function(funcs){
+
+	/**
+	 * Animation timer is a special type of timer that uses the requestAnimationFrame method.
+	 *
+	 * This timer calls the method with the same rate as the screen refesh rate.
+	 * 
+	 * Loop time can be changed dinamically.
+	 *
+	 * @class AnimationTimer
+	 * @param {Function} callback Timer callback function.
+	 */
+	function AnimationTimer(callback)
+	{
+		this.callback = callback;
+
+		this.running = false;
+		this.id = -1;
+	}
+
+	/**
+	 * Start timer, is the timer is already running dosen't do anything.
+	 * 
+	 * @method start
+	 */
+	AnimationTimer.prototype.start = function()
+	{
+		if(this.running)
+		{
+			return;
+		}
+
+		this.running = true;
+
+		var self = this;
+		function run()
+		{
+			self.callback();
+
+			if(self.running)
+			{
+				self.id = requestAnimationFrame(run);
+			}
+		}
+
+		run();
+	};
+
+	/**
+	 * Stop animation timer.
+	 * 
+	 * @method stop
+	 */
+	AnimationTimer.prototype.stop = function()
+	{
+		this.running = false;
+		cancelAnimationFrame(this.id);
+	};
+
+	function loop(fn) {
+		return new AnimationTimer(fn);
+    }
+
+    return funcs.loop = loop;
+});
+define('skylark-langx-funcs/negate',[
+	"./funcs"
+],function(funcs){
+   
+    /**
+     * Creates a function that negates the result of the predicate `func`. The
+     * `func` predicate is invoked with the `this` binding and arguments of the
+     * created function.
+     * @category Function
+     * @param {Function} predicate The predicate to negate.
+     * @returns {Function} Returns the new negated function.
+     * @example
+     *
+     * function isEven(n) {
+     *   return n % 2 == 0
+     * }
+     *
+     * filter([1, 2, 3, 4, 5, 6], negate(isEven))
+     * // => [1, 3, 5]
+     */
+    function negate(predicate) {
+      if (typeof predicate !== 'function') {
+        throw new TypeError('Expected a function')
+      }
+      return function(...args) {
+        return !predicate.apply(this, args)
+      }
+    }
+
+
+    return funcs.negate = negate;
+
+});
+define('skylark-langx-funcs/proxy',[
+  "skylark-langx-types",
+	"./funcs"
+],function(types,funcs){
+    var slice = Array.prototype.slice,
+        isFunction = types.isFunction,
+        isString = types.isString;
 
     function proxy(fn, context) {
         var args = (2 in arguments) && slice.call(arguments, 2)
@@ -2095,34 +2304,17 @@ define('skylark-langx-funcs/funcs',[
         }
     }
 
-    function debounce(fn, wait) {
-        var timeout;
-        return function () {
-            var context = this, args = arguments;
-            var later = function () {
-                timeout = null;
-                fn.apply(context, args);
-            };
-            if (timeout) clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
+    return funcs.bind = funcs.proxy = proxy;
+
+});
+define('skylark-langx-funcs/template',[
+  "skylark-langx-objects",
+  "./funcs",
+  "./proxy"
+],function(objects,funcs,proxy){
+    var slice = Array.prototype.slice;
+
    
-    var delegate = (function() {
-        // boodman/crockford delegation w/ cornford optimization
-        function TMP() {}
-        return function(obj, props) {
-            TMP.prototype = obj;
-            var tmp = new TMP();
-            TMP.prototype = null;
-            if (props) {
-                mixin(tmp, props);
-            }
-            return tmp; // Object
-        };
-    })();
-
-
     // By default, Underscore uses ERB-style template delimiters, change the
     // following template settings to use alternative delimiters.
     var templateSettings = {
@@ -2212,62 +2404,39 @@ define('skylark-langx-funcs/funcs',[
         return template;
     }
 
+    template.templateSettings = funcs.templateSettings = templateSettings;
 
-    /**
-     * Creates a function that negates the result of the predicate `func`. The
-     * `func` predicate is invoked with the `this` binding and arguments of the
-     * created function.
-     * @category Function
-     * @param {Function} predicate The predicate to negate.
-     * @returns {Function} Returns the new negated function.
-     * @example
-     *
-     * function isEven(n) {
-     *   return n % 2 == 0
-     * }
-     *
-     * filter([1, 2, 3, 4, 5, 6], negate(isEven))
-     * // => [1, 3, 5]
-     */
-    function negate(predicate) {
-      if (typeof predicate !== 'function') {
-        throw new TypeError('Expected a function')
-      }
-      return function(...args) {
-        return !predicate.apply(this, args)
-      }
-    }
+    return funcs.template = template;
 
+});
+define('skylark-langx-funcs/throttle',[
+  "./funcs"
+],function(funcs){
 
-    return skylark.attach("langx.funcs",{
-        bind : proxy,
-        
-        debounce: debounce,
+    const throttle = function (fn, wait) {
+        let last = window.performance.now();
+        const throttled = function (...args) {
+            const now = window.performance.now();
+            if (now - last >= wait) {
+                fn(...args);
+                last = now;
+            }
+        };
+        return throttled;
+    };
 
-        delegate: delegate,
-
-        defer: defer,
-
-        negate: negate,
-
-        noop : noop,
-
-        proxy: proxy,
-
-        returnTrue: function() {
-            return true;
-        },
-
-        returnFalse: function() {
-            return false;
-        },
-
-        templateSettings : templateSettings,
-        template : template
-    });
+    return funcs.throttle = throttle;
 });
 define('skylark-langx-funcs/main',[
-	"./funcs"
+	"./funcs",
+	"./debounce",
+	"./defer",
+	"./delegate",
+	"./loop",
+	"./negate",
+	"./proxy",
+	"./template",
+	"./throttle"
 ],function(funcs){
 	return funcs;
 });
@@ -2630,7 +2799,7 @@ define('skylark-langx/async',[
     return async;
 });
 define('skylark-langx-binary/binary',[
-  "skylark-langx-ns/ns",
+  "skylark-langx-ns",
 ],function(skylark){
 	"use strict";
 
@@ -2731,6 +2900,308 @@ define('skylark-langx/binary',[
 ],function(binary){
   return binary;
 });
+define('skylark-langx-constructs/constructs',[
+  "skylark-langx-ns"
+],function(skylark){
+
+    return skylark.attach("langx.constructs",{});
+});
+define('skylark-langx-constructs/inherit',[
+	"./constructs"
+],function(constructs){
+
+    function inherit(ctor,base) {
+        ///var f = function() {};
+        ///f.prototype = base.prototype;
+        ///
+        ///ctor.prototype = new f();
+
+	    if ((typeof base !== "function") && base) {
+	      throw new TypeError("Super expression must either be null or a function");
+	    }
+
+	    ctor.prototype = Object.create(base && base.prototype, {
+	      constructor: {
+	        value: ctor,
+	        writable: true,
+	        configurable: true
+	      }
+	    });
+
+	    if (base) {
+	    	//tor.__proto__ = base;
+	    	Object.setPrototypeOf(ctor, base);
+	    } 
+    }
+
+    return constructs.inherit = inherit
+});
+define('skylark-langx-constructs/klass',[
+  "skylark-langx-ns",
+  "skylark-langx-types",
+  "skylark-langx-objects",
+  "skylark-langx-arrays",
+  "./constructs",
+  "./inherit"
+],function(skylark,types,objects,arrays,constructs,inherit){
+    var uniq = arrays.uniq,
+        has = objects.has,
+        mixin = objects.mixin,
+        isArray = types.isArray,
+        isDefined = types.isDefined;
+
+/* for reference 
+ function klass(props,parent) {
+    var ctor = function(){
+        this._construct();
+    };
+    ctor.prototype = props;
+    if (parent) {
+        ctor._proto_ = parent;
+        props.__proto__ = parent.prototype;
+    }
+    return ctor;
+}
+
+// Type some JavaScript code here.
+let animal = klass({
+  _construct(){
+      this.name = this.name + ",hi";
+  },
+    
+  name: "Animal",
+  eat() {         // [[HomeObject]] == animal
+    alert(`${this.name} eats.`);
+  }
+    
+    
+});
+
+
+let rabbit = klass({
+  name: "Rabbit",
+  _construct(){
+      super._construct();
+  },
+  eat() {         // [[HomeObject]] == rabbit
+    super.eat();
+  }
+},animal);
+
+let longEar = klass({
+  name: "Long Ear",
+  eat() {         // [[HomeObject]] == longEar
+    super.eat();
+  }
+},rabbit);
+*/
+    
+
+
+    var f1 = function() {
+        function extendClass(ctor, props, options) {
+            // Copy the properties to the prototype of the class.
+            var proto = ctor.prototype,
+                _super = ctor.superclass.prototype,
+                noOverrided = options && options.noOverrided,
+                overrides = options && options.overrides || {};
+
+            for (var name in props) {
+                if (name === "constructor") {
+                    continue;
+                }
+
+                // Check if we're overwriting an existing function
+                var prop = props[name];
+                if (typeof props[name] == "function") {
+                    proto[name] =  !prop._constructor && !noOverrided && typeof _super[name] == "function" ?
+                          (function(name, fn, superFn) {
+                            return function() {
+                                var tmp = this.overrided;
+
+                                // Add a new ._super() method that is the same method
+                                // but on the super-class
+                                this.overrided = superFn;
+
+                                // The method only need to be bound temporarily, so we
+                                // remove it when we're done executing
+                                var ret = fn.apply(this, arguments);
+
+                                this.overrided = tmp;
+
+                                return ret;
+                            };
+                        })(name, prop, _super[name]) :
+                        prop;
+                } else if (types.isPlainObject(prop) && prop!==null && (prop.get)) {
+                    Object.defineProperty(proto,name,prop);
+                } else {
+                    proto[name] = prop;
+                }
+            }
+            return ctor;
+        }
+
+        function serialMixins(ctor,mixins) {
+            var result = [];
+
+            mixins.forEach(function(mixin){
+                if (has(mixin,"__mixins__")) {
+                     throw new Error("nested mixins");
+                }
+                var clss = [];
+                while (mixin) {
+                    clss.unshift(mixin);
+                    mixin = mixin.superclass;
+                }
+                result = result.concat(clss);
+            });
+
+            result = uniq(result);
+
+            result = result.filter(function(mixin){
+                var cls = ctor;
+                while (cls) {
+                    if (mixin === cls) {
+                        return false;
+                    }
+                    if (has(cls,"__mixins__")) {
+                        var clsMixines = cls["__mixins__"];
+                        for (var i=0; i<clsMixines.length;i++) {
+                            if (clsMixines[i]===mixin) {
+                                return false;
+                            }
+                        }
+                    }
+                    cls = cls.superclass;
+                }
+                return true;
+            });
+
+            if (result.length>0) {
+                return result;
+            } else {
+                return false;
+            }
+        }
+
+        function mergeMixins(ctor,mixins) {
+            var newCtor =ctor;
+            for (var i=0;i<mixins.length;i++) {
+                var xtor = new Function();
+
+                inherit(xtor,newCtor)
+                //xtor.prototype = Object.create(newCtor.prototype);
+                //xtor.__proto__ = newCtor;
+                xtor.superclass = null;
+                mixin(xtor.prototype,mixins[i].prototype);
+                xtor.prototype.__mixin__ = mixins[i];
+                newCtor = xtor;
+            }
+
+            return newCtor;
+        }
+
+        function _constructor ()  {
+            if (this._construct) {
+                return this._construct.apply(this, arguments);
+            } else  if (this.init) {
+                return this.init.apply(this, arguments);
+            }
+        }
+
+        return function createClass(props, parent, mixins,options) {
+            if (isArray(parent)) {
+                options = mixins;
+                mixins = parent;
+                parent = null;
+            }
+            parent = parent || Object;
+
+            if (isDefined(mixins) && !isArray(mixins)) {
+                options = mixins;
+                mixins = false;
+            }
+
+            var innerParent = parent;
+
+            if (mixins) {
+                mixins = serialMixins(innerParent,mixins);
+            }
+
+            if (mixins) {
+                innerParent = mergeMixins(innerParent,mixins);
+            }
+
+            var klassName = props.klassName || "",
+                ctor = new Function(
+                    "return function " + klassName + "() {" +
+                    "var inst = this," +
+                    " ctor = arguments.callee;" +
+                    "if (!(inst instanceof ctor)) {" +
+                    "inst = Object.create(ctor.prototype);" +
+                    "}" +
+                    "return ctor._constructor.apply(inst, arguments) || inst;" + 
+                    "}"
+                )();
+
+
+            // Populate our constructed prototype object
+            ///ctor.prototype = Object.create(innerParent.prototype);
+
+            // Enforce the constructor to be what we expect
+            ///ctor.prototype.constructor = ctor;
+  
+            // And make this class extendable
+            ///ctor.__proto__ = innerParent;
+
+            inherit(ctor,innerParent);
+
+            ctor.superclass = parent;
+
+            if (!ctor._constructor) {
+                ctor._constructor = _constructor;
+            } 
+
+            if (mixins) {
+                ctor.__mixins__ = mixins;
+            }
+
+            if (!ctor.partial) {
+                ctor.partial = function(props, options) {
+                    return extendClass(this, props, options);
+                };
+            }
+            if (!ctor.inherit) {
+                ctor.inherit = function(props, mixins,options) {
+                    return createClass(props, this, mixins,options);
+                };
+            }
+
+            ctor.partial(props, options);
+
+            return ctor;
+        };
+    }
+
+    var createClass = f1();
+
+    return constructs.klass = createClass;
+});
+define('skylark-langx-constructs/main',[
+	"./constructs",
+	"./inherit",
+	"./klass"
+],function(constructs){
+	return constructs;
+});
+define('skylark-langx-constructs', ['skylark-langx-constructs/main'], function (main) { return main; });
+
+define('skylark-langx/constructs',[
+	"skylark-langx-constructs"
+],function(constructs){
+  return constructs;
+});
 define('skylark-langx-datetimes/datetimes',[
     "skylark-langx-ns"
 ],function(skylark){
@@ -2809,9 +3280,9 @@ define('skylark-langx/datetimes',[
     return datetimes;
 });
 define('skylark-langx/Deferred',[
-    "skylark-langx-async/Deferred"
-],function(Deferred){
-    return Deferred;
+    "skylark-langx-async"
+],function(async){
+    return async.Deferred;
 });
 define('skylark-langx-events/events',[
 	"skylark-langx-ns"
@@ -2882,6 +3353,12 @@ define('skylark-langx-hoster/hoster',[
 	    function uaMatch( ua ) {
 		    ua = ua.toLowerCase();
 
+			//IE11OrLess = !!navigator.userAgent.match(/(?:Trident.*rv[ :]?11\.|msie|iemobile)/i),
+			//Edge = !!navigator.userAgent.match(/Edge/i),
+			//FireFox = !!navigator.userAgent.match(/firefox/i),
+			//Safari = !!(navigator.userAgent.match(/safari/i) && !navigator.userAgent.match(/chrome/i) && !navigator.userAgent.match(/android/i)),
+			//IOS = !!(navigator.userAgent.match(/iP(ad|od|hone)/i)),
+
 		    var match = /(chrome)[ \/]([\w.]+)/.exec( ua ) ||
 		      /(webkit)[ \/]([\w.]+)/.exec( ua ) ||
 		      /(opera)(?:.*version|)[ \/]([\w.]+)/.exec( ua ) ||
@@ -2912,10 +3389,158 @@ define('skylark-langx-hoster/hoster',[
 	    }
 	}
 
+	hoster.detects = {};
+
 	return  skylark.attach("langx.hoster",hoster);
 });
+define('skylark-langx-hoster/detects/mobile',[
+    "../hoster"
+],function(hoster){
+    //refer : https://github.com/kaimallea/isMobile
+
+    var appleIphone = /iPhone/i;
+    var appleIpod = /iPod/i;
+    var appleTablet = /iPad/i;
+    var appleUniversal = /\biOS-universal(?:.+)Mac\b/i;
+    var androidPhone = /\bAndroid(?:.+)Mobile\b/i;
+    var androidTablet = /Android/i;
+    var amazonPhone = /(?:SD4930UR|\bSilk(?:.+)Mobile\b)/i;
+    var amazonTablet = /Silk/i;
+    var windowsPhone = /Windows Phone/i;
+    var windowsTablet = /\bWindows(?:.+)ARM\b/i;
+    var otherBlackBerry = /BlackBerry/i;
+    var otherBlackBerry10 = /BB10/i;
+    var otherOpera = /Opera Mini/i;
+    var otherChrome = /\b(CriOS|Chrome)(?:.+)Mobile/i;
+    var otherFirefox = /Mobile(?:.+)Firefox\b/i;
+    var isAppleTabletOnIos13 = function (navigator) {
+        return (typeof navigator !== 'undefined' &&
+            navigator.platform === 'MacIntel' &&
+            typeof navigator.maxTouchPoints === 'number' &&
+            navigator.maxTouchPoints > 1 &&
+            typeof MSStream === 'undefined');
+    };
+    function createMatch(userAgent) {
+        return function (regex) { return regex.test(userAgent); };
+    }
+    
+    function detectMobile(param) {
+        var nav = {
+            userAgent: '',
+            platform: '',
+            maxTouchPoints: 0
+        };
+        if (!param && typeof navigator !== 'undefined') {
+            nav = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                maxTouchPoints: navigator.maxTouchPoints || 0
+            };
+        }
+        else if (typeof param === 'string') {
+            nav.userAgent = param;
+        }
+        else if (param && param.userAgent) {
+            nav = {
+                userAgent: param.userAgent,
+                platform: param.platform,
+                maxTouchPoints: param.maxTouchPoints || 0
+            };
+        }
+        var userAgent = nav.userAgent;
+        var tmp = userAgent.split('[FBAN');
+        if (typeof tmp[1] !== 'undefined') {
+            userAgent = tmp[0];
+        }
+        tmp = userAgent.split('Twitter');
+        if (typeof tmp[1] !== 'undefined') {
+            userAgent = tmp[0];
+        }
+        var match = createMatch(userAgent);
+        var result = {
+            apple: {
+                phone: match(appleIphone) && !match(windowsPhone),
+                ipod: match(appleIpod),
+                tablet: !match(appleIphone) &&
+                    (match(appleTablet) || isAppleTabletOnIos13(nav)) &&
+                    !match(windowsPhone),
+                universal: match(appleUniversal),
+                device: (match(appleIphone) ||
+                    match(appleIpod) ||
+                    match(appleTablet) ||
+                    match(appleUniversal) ||
+                    isAppleTabletOnIos13(nav)) &&
+                    !match(windowsPhone)
+            },
+            amazon: {
+                phone: match(amazonPhone),
+                tablet: !match(amazonPhone) && match(amazonTablet),
+                device: match(amazonPhone) || match(amazonTablet)
+            },
+            android: {
+                phone: (!match(windowsPhone) && match(amazonPhone)) ||
+                    (!match(windowsPhone) && match(androidPhone)),
+                tablet: !match(windowsPhone) &&
+                    !match(amazonPhone) &&
+                    !match(androidPhone) &&
+                    (match(amazonTablet) || match(androidTablet)),
+                device: (!match(windowsPhone) &&
+                    (match(amazonPhone) ||
+                        match(amazonTablet) ||
+                        match(androidPhone) ||
+                        match(androidTablet))) ||
+                    match(/\bokhttp\b/i)
+            },
+            windows: {
+                phone: match(windowsPhone),
+                tablet: match(windowsTablet),
+                device: match(windowsPhone) || match(windowsTablet)
+            },
+            other: {
+                blackberry: match(otherBlackBerry),
+                blackberry10: match(otherBlackBerry10),
+                opera: match(otherOpera),
+                firefox: match(otherFirefox),
+                chrome: match(otherChrome),
+                device: match(otherBlackBerry) ||
+                    match(otherBlackBerry10) ||
+                    match(otherOpera) ||
+                    match(otherFirefox) ||
+                    match(otherChrome)
+            },
+            any: false,
+            phone: false,
+            tablet: false
+        };
+        result.any =
+            result.apple.device ||
+                result.android.device ||
+                result.windows.device ||
+                result.other.device;
+        result.phone =
+            result.apple.phone || result.android.phone || result.windows.phone;
+        result.tablet =
+            result.apple.tablet || result.android.tablet || result.windows.tablet;
+        return result;
+    }
+
+    return hoster.detects.mobile = detectMobile;
+});
+
+define('skylark-langx-hoster/isMobile',[
+    "./hoster",
+    "./detects/mobile"
+],function(hoster,detectMobile){
+    if (hoster.isMobile == undefined) {
+        hoster.isMobile = detectMobile();
+    }
+
+    return hoster.isMobile;
+});
+
 define('skylark-langx-hoster/main',[
-	"./hoster"
+	"./hoster",
+	"./isMobile"
 ],function(hoster){
 	return hoster;
 });
@@ -2925,8 +3550,9 @@ define('skylark-langx-events/Event',[
   "skylark-langx-objects",
   "skylark-langx-funcs",
   "skylark-langx-klass",
-  "skylark-langx-hoster"
-],function(objects,funcs,klass){
+  "skylark-langx-hoster",
+    "./events"
+],function(objects,funcs,klass,events){
     var eventMethods = {
         preventDefault: "isDefaultPrevented",
         stopImmediatePropagation: "isImmediatePropagationStopped",
@@ -2974,7 +3600,7 @@ define('skylark-langx-events/Event',[
 
     Event.compatible = compatible;
 
-    return Event;
+    return events.Event = Event;
     
 });
 define('skylark-langx-events/Listener',[
@@ -3149,6 +3775,15 @@ define('skylark-langx-events/Emitter',[
     }
 
     var Emitter = Listener.inherit({
+        _prepareArgs : function(e,args) {
+            if (isDefined(args)) {
+                args = [e].concat(args);
+            } else {
+                args = [e];
+            }
+            return args;
+        },
+
         on: function(events, selector, data, callback, ctx, /*used internally*/ one) {
             var self = this,
                 _hub = this._hub || (this._hub = {});
@@ -3222,11 +3857,9 @@ define('skylark-langx-events/Emitter',[
             });
 
             var args = slice.call(arguments, 1);
-            if (isDefined(args)) {
-                args = [e].concat(args);
-            } else {
-                args = [e];
-            }
+
+            args = this._prepareArgs(e,args);
+
             [e.type || e.name, "all"].forEach(function(eventName) {
                 var parsed = parse(eventName),
                     name = parsed.name,
@@ -3326,16 +3959,6 @@ define('skylark-langx-events/Emitter',[
     return events.Emitter = Emitter;
 
 });
-define('skylark-langx/Emitter',[
-    "skylark-langx-events/Emitter"
-],function(Emitter){
-    return Emitter;
-});
-define('skylark-langx/Evented',[
-    "./Emitter"
-],function(Emitter){
-    return Emitter;
-});
 define('skylark-langx-events/createEvent',[
 	"./events",
 	"./Event"
@@ -3359,6 +3982,16 @@ define('skylark-langx-events/main',[
 });
 define('skylark-langx-events', ['skylark-langx-events/main'], function (main) { return main; });
 
+define('skylark-langx/Emitter',[
+    "skylark-langx-events"
+],function(events){
+    return events.Emitter;
+});
+define('skylark-langx/Evented',[
+    "./Emitter"
+],function(Emitter){
+    return Emitter;
+});
 define('skylark-langx/events',[
 	"skylark-langx-events"
 ],function(events){
@@ -3368,6 +4001,86 @@ define('skylark-langx/funcs',[
     "skylark-langx-funcs"
 ],function(funcs){
     return funcs;
+});
+define('skylark-langx-globals/globals',[
+	"skylark-langx-ns"
+],function(ns) {
+	var globals = (function(){
+		if (typeof global !== 'undefined' && typeof global !== 'function') {
+			// global spec defines a reference to the global object called 'global'
+			// https://github.com/tc39/proposal-global
+			// `global` is also defined in NodeJS
+			return global;
+		} else if (typeof window !== 'undefined') {
+			// window is defined in browsers
+			return window;
+		}
+		else if (typeof self !== 'undefined') {
+			// self is defined in WebWorkers
+			return self;
+		}
+		return this;
+	})();
+
+	return ns.attach("langx.globals",globals);
+
+});
+define('skylark-langx-globals/console',[
+	"./globals"
+], function(globals) {
+	return globals.console = console;
+});
+define('skylark-langx-globals/document',[
+	"./globals"
+], function(globals) {
+	var topLevel = typeof global !== 'undefined' ? global :
+	    typeof window !== 'undefined' ? window : {};
+
+	var doccy;
+
+	if (typeof document !== 'undefined') {
+	    doccy = document;
+	} else {
+        doccy  = require('min-document');
+	}
+
+
+	return globals.document = doccy;
+});
+
+
+
+
+define('skylark-langx-globals/window',[
+	"./globals"
+], function(globals) {
+
+	var win = (function() {
+		if (typeof window !== "undefined") {
+		    return window;
+		} else {
+		    return {};
+		}
+	})();
+
+	return globals.window = win;
+});
+
+define('skylark-langx-globals/main',[
+	"./globals",
+	"./console",
+	"./document",
+	"./window"
+],function(globals){
+
+	return globals;
+});
+define('skylark-langx-globals', ['skylark-langx-globals/main'], function (main) { return main; });
+
+define('skylark-langx/globals',[
+    "skylark-langx-globals"
+],function(globals){
+    return globals;
 });
 define('skylark-langx/hoster',[
 	"skylark-langx-hoster"
@@ -3476,13 +4189,13 @@ define('skylark-langx-maths/maths',[
 
 		degToRad: function ( degrees ) {
 
-			return degrees * MathUtils.DEG2RAD;
+			return degrees * maths.DEG2RAD;
 
 		},
 
 		radToDeg: function ( radians ) {
 
-			return radians * MathUtils.RAD2DEG;
+			return radians * maths.RAD2DEG;
 
 		},
 
@@ -3577,10 +4290,5700 @@ define('skylark-langx/maths',[
 ],function(maths){
     return maths;
 });
-define('skylark-langx/numbers',[
-	"skylark-langx-numbers"
-],function(numbers){
-	return numbers;
+define('skylark-langx-numerics/numerics',[
+    "skylark-langx-ns",
+    "skylark-langx-types"
+],function(skylark,types){
+
+	return  skylark.attach("langx.numerics",{
+		toFinite : types.toFinite,
+		toNumber : types.toNumber,
+		toInteger : types.toInteger
+	});
+});
+define('skylark-langx-numerics/maths',[
+    "skylark-langx-ns",
+    "skylark-langx-types",
+    "./numerics"
+],function(skylark,types,numerics){
+
+
+	var _lut = [];
+
+	for ( var i = 0; i < 256; i ++ ) {
+
+		_lut[ i ] = ( i < 16 ? '0' : '' ) + ( i ).toString( 16 );
+
+	}
+
+	var maths = {
+
+		DEG2RAD: Math.PI / 180,
+		RAD2DEG: 180 / Math.PI,
+
+
+
+		clamp: function ( value, min, max ) {
+
+			return Math.max( min, Math.min( max, value ) );
+
+		},
+
+		// compute euclidian modulo of m % n
+		// https://en.wikipedia.org/wiki/Modulo_operation
+
+		euclideanModulo: function ( n, m ) {
+
+			return ( ( n % m ) + m ) % m;
+
+		},
+
+		// Linear mapping from range <a1, a2> to range <b1, b2>
+
+		mapLinear: function ( x, a1, a2, b1, b2 ) {
+
+			return b1 + ( x - a1 ) * ( b2 - b1 ) / ( a2 - a1 );
+
+		},
+
+		// https://en.wikipedia.org/wiki/Linear_interpolation
+
+		lerp: function ( x, y, t ) {
+
+			return ( 1 - t ) * x + t * y;
+
+		},
+
+		// http://en.wikipedia.org/wiki/Smoothstep
+
+		smoothstep: function ( x, min, max ) {
+
+			if ( x <= min ) return 0;
+			if ( x >= max ) return 1;
+
+			x = ( x - min ) / ( max - min );
+
+			return x * x * ( 3 - 2 * x );
+
+		},
+
+		smootherstep: function ( x, min, max ) {
+
+			if ( x <= min ) return 0;
+			if ( x >= max ) return 1;
+
+			x = ( x - min ) / ( max - min );
+
+			return x * x * x * ( x * ( x * 6 - 15 ) + 10 );
+
+		},
+
+		// Random integer from <low, high> interval
+
+		randInt: function ( low, high ) {
+
+			return low + Math.floor( Math.random() * ( high - low + 1 ) );
+
+		},
+
+		// Random float from <low, high> interval
+
+		randFloat: function ( low, high ) {
+
+			return low + Math.random() * ( high - low );
+
+		},
+
+		// Random float from <-range/2, range/2> interval
+
+		randFloatSpread: function ( range ) {
+
+			return range * ( 0.5 - Math.random() );
+
+		},
+
+		degToRad: function ( degrees ) {
+
+			return degrees * maths.DEG2RAD;
+
+		},
+
+		radToDeg: function ( radians ) {
+
+			return radians * maths.RAD2DEG;
+
+		},
+
+		isPowerOfTwo: function ( value ) {
+
+			return ( value & ( value - 1 ) ) === 0 && value !== 0;
+
+		},
+
+		ceilPowerOfTwo: function ( value ) {
+
+			return Math.pow( 2, Math.ceil( Math.log( value ) / Math.LN2 ) );
+
+		},
+
+		floorPowerOfTwo: function ( value ) {
+
+			return Math.pow( 2, Math.floor( Math.log( value ) / Math.LN2 ) );
+
+		},
+
+		setQuaternionFromProperEuler: function ( q, a, b, c, order ) {
+
+			// Intrinsic Proper Euler Angles - see https://en.wikipedia.org/wiki/Euler_angles
+
+			// rotations are applied to the axes in the order specified by 'order'
+			// rotation by angle 'a' is applied first, then by angle 'b', then by angle 'c'
+			// angles are in radians
+
+			var cos = Math.cos;
+			var sin = Math.sin;
+
+			var c2 = cos( b / 2 );
+			var s2 = sin( b / 2 );
+
+			var c13 = cos( ( a + c ) / 2 );
+			var s13 = sin( ( a + c ) / 2 );
+
+			var c1_3 = cos( ( a - c ) / 2 );
+			var s1_3 = sin( ( a - c ) / 2 );
+
+			var c3_1 = cos( ( c - a ) / 2 );
+			var s3_1 = sin( ( c - a ) / 2 );
+
+			if ( order === 'XYX' ) {
+
+				q.set( c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13 );
+
+			} else if ( order === 'YZY' ) {
+
+				q.set( s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13 );
+
+			} else if ( order === 'ZXZ' ) {
+
+				q.set( s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13 );
+
+			} else if ( order === 'XZX' ) {
+
+				q.set( c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13 );
+
+			} else if ( order === 'YXY' ) {
+
+				q.set( s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13 );
+
+			} else if ( order === 'ZYZ' ) {
+
+				q.set( s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13 );
+
+			} else {
+
+				console.warn( 'THREE.MathUtils: .setQuaternionFromProperEuler() encountered an unknown order.' );
+
+			}
+
+		}
+
+	};
+
+
+	return  numerics.maths = maths;
+});
+define('skylark-langx-numerics/Quaternion',[
+	"skylark-langx-klass",
+	"./numerics",
+	"./maths"
+] ,function(klass,numerics,maths) {
+
+	var Quaternion = klass({
+		"klassName" : "Quaternion",
+
+		x: {
+
+			get: function () {
+
+				return this._x;
+
+			},
+
+			set: function ( value ) {
+
+				this._x = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		y: {
+
+			get: function () {
+
+				return this._y;
+
+			},
+
+			set: function ( value ) {
+
+				this._y = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		z: {
+
+			get: function () {
+
+				return this._z;
+
+			},
+
+			set: function ( value ) {
+
+				this._z = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		w: {
+
+			get: function () {
+
+				return this._w;
+
+			},
+
+			set: function ( value ) {
+
+				this._w = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		set: function ( x, y, z, w ) {
+
+			this._x = x;
+			this._y = y;
+			this._z = z;
+			this._w = w;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new this.constructor( this._x, this._y, this._z, this._w );
+
+		},
+
+		copy: function ( quaternion ) {
+
+			this._x = quaternion.x;
+			this._y = quaternion.y;
+			this._z = quaternion.z;
+			this._w = quaternion.w;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromEuler: function ( euler, update ) {
+
+			if ( ! ( euler && euler.isEuler ) ) {
+
+				throw new Error( 'mathsQuaternion: .setFromEuler() now expects an Euler rotation rather than a Vector3 and order.' );
+
+			}
+
+			var x = euler._x, y = euler._y, z = euler._z, order = euler.order;
+
+			// http://www.mathworks.com/matlabcentral/fileexchange/
+			// 	20696-function-to-convert-between-dcm-euler-angles-quaternions-and-euler-vectors/
+			//	content/SpinCalc.m
+
+			var cos = Math.cos;
+			var sin = Math.sin;
+
+			var c1 = cos( x / 2 );
+			var c2 = cos( y / 2 );
+			var c3 = cos( z / 2 );
+
+			var s1 = sin( x / 2 );
+			var s2 = sin( y / 2 );
+			var s3 = sin( z / 2 );
+
+			if ( order === 'XYZ' ) {
+
+				this._x = s1 * c2 * c3 + c1 * s2 * s3;
+				this._y = c1 * s2 * c3 - s1 * c2 * s3;
+				this._z = c1 * c2 * s3 + s1 * s2 * c3;
+				this._w = c1 * c2 * c3 - s1 * s2 * s3;
+
+			} else if ( order === 'YXZ' ) {
+
+				this._x = s1 * c2 * c3 + c1 * s2 * s3;
+				this._y = c1 * s2 * c3 - s1 * c2 * s3;
+				this._z = c1 * c2 * s3 - s1 * s2 * c3;
+				this._w = c1 * c2 * c3 + s1 * s2 * s3;
+
+			} else if ( order === 'ZXY' ) {
+
+				this._x = s1 * c2 * c3 - c1 * s2 * s3;
+				this._y = c1 * s2 * c3 + s1 * c2 * s3;
+				this._z = c1 * c2 * s3 + s1 * s2 * c3;
+				this._w = c1 * c2 * c3 - s1 * s2 * s3;
+
+			} else if ( order === 'ZYX' ) {
+
+				this._x = s1 * c2 * c3 - c1 * s2 * s3;
+				this._y = c1 * s2 * c3 + s1 * c2 * s3;
+				this._z = c1 * c2 * s3 - s1 * s2 * c3;
+				this._w = c1 * c2 * c3 + s1 * s2 * s3;
+
+			} else if ( order === 'YZX' ) {
+
+				this._x = s1 * c2 * c3 + c1 * s2 * s3;
+				this._y = c1 * s2 * c3 + s1 * c2 * s3;
+				this._z = c1 * c2 * s3 - s1 * s2 * c3;
+				this._w = c1 * c2 * c3 - s1 * s2 * s3;
+
+			} else if ( order === 'XZY' ) {
+
+				this._x = s1 * c2 * c3 - c1 * s2 * s3;
+				this._y = c1 * s2 * c3 - s1 * c2 * s3;
+				this._z = c1 * c2 * s3 + s1 * s2 * c3;
+				this._w = c1 * c2 * c3 + s1 * s2 * s3;
+
+			}
+
+			if ( update !== false ) this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromAxisAngle: function ( axis, angle ) {
+
+			// http://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToQuaternion/index.htm
+
+			// assumes axis is normalized
+
+			var halfAngle = angle / 2, s = Math.sin( halfAngle );
+
+			this._x = axis.x * s;
+			this._y = axis.y * s;
+			this._z = axis.z * s;
+			this._w = Math.cos( halfAngle );
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromRotationMatrix: function ( m ) {
+
+			// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+
+			// assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
+
+			var te = m.elements,
+
+				m11 = te[ 0 ], m12 = te[ 4 ], m13 = te[ 8 ],
+				m21 = te[ 1 ], m22 = te[ 5 ], m23 = te[ 9 ],
+				m31 = te[ 2 ], m32 = te[ 6 ], m33 = te[ 10 ],
+
+				trace = m11 + m22 + m33,
+				s;
+
+			if ( trace > 0 ) {
+
+				s = 0.5 / Math.sqrt( trace + 1.0 );
+
+				this._w = 0.25 / s;
+				this._x = ( m32 - m23 ) * s;
+				this._y = ( m13 - m31 ) * s;
+				this._z = ( m21 - m12 ) * s;
+
+			} else if ( m11 > m22 && m11 > m33 ) {
+
+				s = 2.0 * Math.sqrt( 1.0 + m11 - m22 - m33 );
+
+				this._w = ( m32 - m23 ) / s;
+				this._x = 0.25 * s;
+				this._y = ( m12 + m21 ) / s;
+				this._z = ( m13 + m31 ) / s;
+
+			} else if ( m22 > m33 ) {
+
+				s = 2.0 * Math.sqrt( 1.0 + m22 - m11 - m33 );
+
+				this._w = ( m13 - m31 ) / s;
+				this._x = ( m12 + m21 ) / s;
+				this._y = 0.25 * s;
+				this._z = ( m23 + m32 ) / s;
+
+			} else {
+
+				s = 2.0 * Math.sqrt( 1.0 + m33 - m11 - m22 );
+
+				this._w = ( m21 - m12 ) / s;
+				this._x = ( m13 + m31 ) / s;
+				this._y = ( m23 + m32 ) / s;
+				this._z = 0.25 * s;
+
+			}
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromUnitVectors: function ( vFrom, vTo ) {
+
+			// assumes direction vectors vFrom and vTo are normalized
+
+			var EPS = 0.000001;
+
+			var r = vFrom.dot( vTo ) + 1;
+
+			if ( r < EPS ) {
+
+				r = 0;
+
+				if ( Math.abs( vFrom.x ) > Math.abs( vFrom.z ) ) {
+
+					this._x = - vFrom.y;
+					this._y = vFrom.x;
+					this._z = 0;
+					this._w = r;
+
+				} else {
+
+					this._x = 0;
+					this._y = - vFrom.z;
+					this._z = vFrom.y;
+					this._w = r;
+
+				}
+
+			} else {
+
+				// crossVectors( vFrom, vTo ); // inlined to avoid cyclic dependency on Vector3
+
+				this._x = vFrom.y * vTo.z - vFrom.z * vTo.y;
+				this._y = vFrom.z * vTo.x - vFrom.x * vTo.z;
+				this._z = vFrom.x * vTo.y - vFrom.y * vTo.x;
+				this._w = r;
+
+			}
+
+			return this.normalize();
+
+		},
+
+		angleTo: function ( q ) {
+
+			return 2 * Math.acos( Math.abs( maths.clamp( this.dot( q ), - 1, 1 ) ) );
+
+		},
+
+		rotateTowards: function ( q, step ) {
+
+			var angle = this.angleTo( q );
+
+			if ( angle === 0 ) return this;
+
+			var t = Math.min( 1, step / angle );
+
+			this.slerp( q, t );
+
+			return this;
+
+		},
+
+		inverse: function () {
+
+			// quaternion is assumed to have unit length
+
+			return this.conjugate();
+
+		},
+
+		conjugate: function () {
+
+			this._x *= - 1;
+			this._y *= - 1;
+			this._z *= - 1;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		dot: function ( v ) {
+
+			return this._x * v._x + this._y * v._y + this._z * v._z + this._w * v._w;
+
+		},
+
+		lengthSq: function () {
+
+			return this._x * this._x + this._y * this._y + this._z * this._z + this._w * this._w;
+
+		},
+
+		length: function () {
+
+			return Math.sqrt( this._x * this._x + this._y * this._y + this._z * this._z + this._w * this._w );
+
+		},
+
+		normalize: function () {
+
+			var l = this.length();
+
+			if ( l === 0 ) {
+
+				this._x = 0;
+				this._y = 0;
+				this._z = 0;
+				this._w = 1;
+
+			} else {
+
+				l = 1 / l;
+
+				this._x = this._x * l;
+				this._y = this._y * l;
+				this._z = this._z * l;
+				this._w = this._w * l;
+
+			}
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		multiply: function ( q, p ) {
+
+			if ( p !== undefined ) {
+
+				console.warn( 'mathsQuaternion: .multiply() now only accepts one argument. Use .multiplyQuaternions( a, b ) instead.' );
+				return this.multiplyQuaternions( q, p );
+
+			}
+
+			return this.multiplyQuaternions( this, q );
+
+		},
+
+		premultiply: function ( q ) {
+
+			return this.multiplyQuaternions( q, this );
+
+		},
+
+		multiplyQuaternions: function ( a, b ) {
+
+			// from http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/code/index.htm
+
+			var qax = a._x, qay = a._y, qaz = a._z, qaw = a._w;
+			var qbx = b._x, qby = b._y, qbz = b._z, qbw = b._w;
+
+			this._x = qax * qbw + qaw * qbx + qay * qbz - qaz * qby;
+			this._y = qay * qbw + qaw * qby + qaz * qbx - qax * qbz;
+			this._z = qaz * qbw + qaw * qbz + qax * qby - qay * qbx;
+			this._w = qaw * qbw - qax * qbx - qay * qby - qaz * qbz;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		slerp: function ( qb, t ) {
+
+			if ( t === 0 ) return this;
+			if ( t === 1 ) return this.copy( qb );
+
+			var x = this._x, y = this._y, z = this._z, w = this._w;
+
+			// http://www.euclideanspace.com/maths/algebra/realNormedAlgebra/quaternions/slerp/
+
+			var cosHalfTheta = w * qb._w + x * qb._x + y * qb._y + z * qb._z;
+
+			if ( cosHalfTheta < 0 ) {
+
+				this._w = - qb._w;
+				this._x = - qb._x;
+				this._y = - qb._y;
+				this._z = - qb._z;
+
+				cosHalfTheta = - cosHalfTheta;
+
+			} else {
+
+				this.copy( qb );
+
+			}
+
+			if ( cosHalfTheta >= 1.0 ) {
+
+				this._w = w;
+				this._x = x;
+				this._y = y;
+				this._z = z;
+
+				return this;
+
+			}
+
+			var sqrSinHalfTheta = 1.0 - cosHalfTheta * cosHalfTheta;
+
+			if ( sqrSinHalfTheta <= Number.EPSILON ) {
+
+				var s = 1 - t;
+				this._w = s * w + t * this._w;
+				this._x = s * x + t * this._x;
+				this._y = s * y + t * this._y;
+				this._z = s * z + t * this._z;
+
+				this.normalize();
+				this._onChangeCallback();
+
+				return this;
+
+			}
+
+			var sinHalfTheta = Math.sqrt( sqrSinHalfTheta );
+			var halfTheta = Math.atan2( sinHalfTheta, cosHalfTheta );
+			var ratioA = Math.sin( ( 1 - t ) * halfTheta ) / sinHalfTheta,
+				ratioB = Math.sin( t * halfTheta ) / sinHalfTheta;
+
+			this._w = ( w * ratioA + this._w * ratioB );
+			this._x = ( x * ratioA + this._x * ratioB );
+			this._y = ( y * ratioA + this._y * ratioB );
+			this._z = ( z * ratioA + this._z * ratioB );
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		equals: function ( quaternion ) {
+
+			return ( quaternion._x === this._x ) && ( quaternion._y === this._y ) && ( quaternion._z === this._z ) && ( quaternion._w === this._w );
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			this._x = array[ offset ];
+			this._y = array[ offset + 1 ];
+			this._z = array[ offset + 2 ];
+			this._w = array[ offset + 3 ];
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			array[ offset ] = this._x;
+			array[ offset + 1 ] = this._y;
+			array[ offset + 2 ] = this._z;
+			array[ offset + 3 ] = this._w;
+
+			return array;
+
+		},
+
+		fromBufferAttribute: function ( attribute, index ) {
+
+			this._x = attribute.getX( index );
+			this._y = attribute.getY( index );
+			this._z = attribute.getZ( index );
+			this._w = attribute.getW( index );
+
+			return this;
+
+		},
+
+		_onChange: function ( callback ) {
+
+			this._onChangeCallback = callback;
+
+			return this;
+
+		},
+
+		_onChangeCallback: function () {},
+
+
+		"_construct" : function ( x, y, z, w ) {
+
+			this._x = x || 0;
+			this._y = y || 0;
+			this._z = z || 0;
+			this._w = ( w !== undefined ) ? w : 1;
+
+		}
+
+
+	})
+
+
+	Object.assign( Quaternion, {
+
+		slerp: function ( qa, qb, qm, t ) {
+
+			return qm.copy( qa ).slerp( qb, t );
+
+		},
+
+		slerpFlat: function ( dst, dstOffset, src0, srcOffset0, src1, srcOffset1, t ) {
+
+			// fuzz-free, array-based Quaternion SLERP operation
+
+			var x0 = src0[ srcOffset0 + 0 ],
+				y0 = src0[ srcOffset0 + 1 ],
+				z0 = src0[ srcOffset0 + 2 ],
+				w0 = src0[ srcOffset0 + 3 ],
+
+				x1 = src1[ srcOffset1 + 0 ],
+				y1 = src1[ srcOffset1 + 1 ],
+				z1 = src1[ srcOffset1 + 2 ],
+				w1 = src1[ srcOffset1 + 3 ];
+
+			if ( w0 !== w1 || x0 !== x1 || y0 !== y1 || z0 !== z1 ) {
+
+				var s = 1 - t,
+
+					cos = x0 * x1 + y0 * y1 + z0 * z1 + w0 * w1,
+
+					dir = ( cos >= 0 ? 1 : - 1 ),
+					sqrSin = 1 - cos * cos;
+
+				// Skip the Slerp for tiny steps to avoid numeric problems:
+				if ( sqrSin > Number.EPSILON ) {
+
+					var sin = Math.sqrt( sqrSin ),
+						len = Math.atan2( sin, cos * dir );
+
+					s = Math.sin( s * len ) / sin;
+					t = Math.sin( t * len ) / sin;
+
+				}
+
+				var tDir = t * dir;
+
+				x0 = x0 * s + x1 * tDir;
+				y0 = y0 * s + y1 * tDir;
+				z0 = z0 * s + z1 * tDir;
+				w0 = w0 * s + w1 * tDir;
+
+				// Normalize in case we just did a lerp:
+				if ( s === 1 - t ) {
+
+					var f = 1 / Math.sqrt( x0 * x0 + y0 * y0 + z0 * z0 + w0 * w0 );
+
+					x0 *= f;
+					y0 *= f;
+					z0 *= f;
+					w0 *= f;
+
+				}
+
+			}
+
+			dst[ dstOffset ] = x0;
+			dst[ dstOffset + 1 ] = y0;
+			dst[ dstOffset + 2 ] = z0;
+			dst[ dstOffset + 3 ] = w0;
+
+		}
+
+	} );
+
+	Object.assign( Quaternion.prototype, {
+
+
+	} );
+
+
+	return numerics.Quaternion = Quaternion;
+
+
+});
+define('skylark-langx-numerics/Vector3',[
+	"skylark-langx-klass",
+	"./numerics",
+	"./maths",
+	"./Quaternion"
+] ,function(
+	klass,
+	numerics,
+	maths,
+	Quaternion
+) {
+
+	var _quaternion = new Quaternion();
+
+	var Vector3 = klass({
+		"klassName" : "Vector3",
+
+		set: function ( x, y, z ) {
+
+			this.x = x;
+			this.y = y;
+			this.z = z;
+
+			return this;
+
+		},
+
+		setScalar: function ( scalar ) {
+
+			this.x = scalar;
+			this.y = scalar;
+			this.z = scalar;
+
+			return this;
+
+		},
+
+		setX: function ( x ) {
+
+			this.x = x;
+
+			return this;
+
+		},
+
+		setY: function ( y ) {
+
+			this.y = y;
+
+			return this;
+
+		},
+
+		setZ: function ( z ) {
+
+			this.z = z;
+
+			return this;
+
+		},
+
+		setComponent: function ( index, value ) {
+
+			switch ( index ) {
+
+				case 0: this.x = value; break;
+				case 1: this.y = value; break;
+				case 2: this.z = value; break;
+				default: throw new Error( 'index is out of range: ' + index );
+
+			}
+
+			return this;
+
+		},
+
+		getComponent: function ( index ) {
+
+			switch ( index ) {
+
+				case 0: return this.x;
+				case 1: return this.y;
+				case 2: return this.z;
+				default: throw new Error( 'index is out of range: ' + index );
+
+			}
+
+		},
+
+		clone: function () {
+
+			return new this.constructor( this.x, this.y, this.z );
+
+		},
+
+		copy: function ( v ) {
+
+			this.x = v.x;
+			this.y = v.y;
+			this.z = v.z;
+
+			return this;
+
+		},
+
+		add: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'mathsVector3: .add() now only accepts one argument. Use .addVectors( a, b ) instead.' );
+				return this.addVectors( v, w );
+
+			}
+
+			this.x += v.x;
+			this.y += v.y;
+			this.z += v.z;
+
+			return this;
+
+		},
+
+		addScalar: function ( s ) {
+
+			this.x += s;
+			this.y += s;
+			this.z += s;
+
+			return this;
+
+		},
+
+		addVectors: function ( a, b ) {
+
+			this.x = a.x + b.x;
+			this.y = a.y + b.y;
+			this.z = a.z + b.z;
+
+			return this;
+
+		},
+
+		addScaledVector: function ( v, s ) {
+
+			this.x += v.x * s;
+			this.y += v.y * s;
+			this.z += v.z * s;
+
+			return this;
+
+		},
+
+		sub: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'mathsVector3: .sub() now only accepts one argument. Use .subVectors( a, b ) instead.' );
+				return this.subVectors( v, w );
+
+			}
+
+			this.x -= v.x;
+			this.y -= v.y;
+			this.z -= v.z;
+
+			return this;
+
+		},
+
+		subScalar: function ( s ) {
+
+			this.x -= s;
+			this.y -= s;
+			this.z -= s;
+
+			return this;
+
+		},
+
+		subVectors: function ( a, b ) {
+
+			this.x = a.x - b.x;
+			this.y = a.y - b.y;
+			this.z = a.z - b.z;
+
+			return this;
+
+		},
+
+		multiply: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'mathsVector3: .multiply() now only accepts one argument. Use .multiplyVectors( a, b ) instead.' );
+				return this.multiplyVectors( v, w );
+
+			}
+
+			this.x *= v.x;
+			this.y *= v.y;
+			this.z *= v.z;
+
+			return this;
+
+		},
+
+		multiplyScalar: function ( scalar ) {
+
+			this.x *= scalar;
+			this.y *= scalar;
+			this.z *= scalar;
+
+			return this;
+
+		},
+
+		multiplyVectors: function ( a, b ) {
+
+			this.x = a.x * b.x;
+			this.y = a.y * b.y;
+			this.z = a.z * b.z;
+
+			return this;
+
+		},
+
+		applyEuler: function ( euler ) {
+
+			if ( ! ( euler && euler.isEuler ) ) {
+
+				console.error( 'mathsVector3: .applyEuler() now expects an Euler rotation rather than a Vector3 and order.' );
+
+			}
+
+			return this.applyQuaternion( _quaternion.setFromEuler( euler ) );
+
+		},
+
+		applyAxisAngle: function ( axis, angle ) {
+
+			return this.applyQuaternion( _quaternion.setFromAxisAngle( axis, angle ) );
+
+		},
+
+		applyMatrix3: function ( m ) {
+
+			var x = this.x, y = this.y, z = this.z;
+			var e = m.elements;
+
+			this.x = e[ 0 ] * x + e[ 3 ] * y + e[ 6 ] * z;
+			this.y = e[ 1 ] * x + e[ 4 ] * y + e[ 7 ] * z;
+			this.z = e[ 2 ] * x + e[ 5 ] * y + e[ 8 ] * z;
+
+			return this;
+
+		},
+
+		applyNormalMatrix: function ( m ) {
+
+			return this.applyMatrix3( m ).normalize();
+
+		},
+
+		applyMatrix4: function ( m ) {
+
+			var x = this.x, y = this.y, z = this.z;
+			var e = m.elements;
+
+			var w = 1 / ( e[ 3 ] * x + e[ 7 ] * y + e[ 11 ] * z + e[ 15 ] );
+
+			this.x = ( e[ 0 ] * x + e[ 4 ] * y + e[ 8 ] * z + e[ 12 ] ) * w;
+			this.y = ( e[ 1 ] * x + e[ 5 ] * y + e[ 9 ] * z + e[ 13 ] ) * w;
+			this.z = ( e[ 2 ] * x + e[ 6 ] * y + e[ 10 ] * z + e[ 14 ] ) * w;
+
+			return this;
+
+		},
+
+		applyQuaternion: function ( q ) {
+
+			var x = this.x, y = this.y, z = this.z;
+			var qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+
+			// calculate quat * vector
+
+			var ix = qw * x + qy * z - qz * y;
+			var iy = qw * y + qz * x - qx * z;
+			var iz = qw * z + qx * y - qy * x;
+			var iw = - qx * x - qy * y - qz * z;
+
+			// calculate result * inverse quat
+
+			this.x = ix * qw + iw * - qx + iy * - qz - iz * - qy;
+			this.y = iy * qw + iw * - qy + iz * - qx - ix * - qz;
+			this.z = iz * qw + iw * - qz + ix * - qy - iy * - qx;
+
+			return this;
+
+		},
+
+		project: function ( camera ) {
+
+			return this.applyMatrix4( camera.matrixWorldInverse ).applyMatrix4( camera.projectionMatrix );
+
+		},
+
+		unproject: function ( camera ) {
+
+			return this.applyMatrix4( camera.projectionMatrixInverse ).applyMatrix4( camera.matrixWorld );
+
+		},
+
+		transformDirection: function ( m ) {
+
+			// input: mathsMatrix4 affine matrix
+			// vector interpreted as a direction
+
+			var x = this.x, y = this.y, z = this.z;
+			var e = m.elements;
+
+			this.x = e[ 0 ] * x + e[ 4 ] * y + e[ 8 ] * z;
+			this.y = e[ 1 ] * x + e[ 5 ] * y + e[ 9 ] * z;
+			this.z = e[ 2 ] * x + e[ 6 ] * y + e[ 10 ] * z;
+
+			return this.normalize();
+
+		},
+
+		divide: function ( v ) {
+
+			this.x /= v.x;
+			this.y /= v.y;
+			this.z /= v.z;
+
+			return this;
+
+		},
+
+		divideScalar: function ( scalar ) {
+
+			return this.multiplyScalar( 1 / scalar );
+
+		},
+
+		min: function ( v ) {
+
+			this.x = Math.min( this.x, v.x );
+			this.y = Math.min( this.y, v.y );
+			this.z = Math.min( this.z, v.z );
+
+			return this;
+
+		},
+
+		max: function ( v ) {
+
+			this.x = Math.max( this.x, v.x );
+			this.y = Math.max( this.y, v.y );
+			this.z = Math.max( this.z, v.z );
+
+			return this;
+
+		},
+
+		clamp: function ( min, max ) {
+
+			// assumes min < max, componentwise
+
+			this.x = Math.max( min.x, Math.min( max.x, this.x ) );
+			this.y = Math.max( min.y, Math.min( max.y, this.y ) );
+			this.z = Math.max( min.z, Math.min( max.z, this.z ) );
+
+			return this;
+
+		},
+
+		clampScalar: function ( minVal, maxVal ) {
+
+			this.x = Math.max( minVal, Math.min( maxVal, this.x ) );
+			this.y = Math.max( minVal, Math.min( maxVal, this.y ) );
+			this.z = Math.max( minVal, Math.min( maxVal, this.z ) );
+
+			return this;
+
+		},
+
+		clampLength: function ( min, max ) {
+
+			var length = this.length();
+
+			return this.divideScalar( length || 1 ).multiplyScalar( Math.max( min, Math.min( max, length ) ) );
+
+		},
+
+		floor: function () {
+
+			this.x = Math.floor( this.x );
+			this.y = Math.floor( this.y );
+			this.z = Math.floor( this.z );
+
+			return this;
+
+		},
+
+		ceil: function () {
+
+			this.x = Math.ceil( this.x );
+			this.y = Math.ceil( this.y );
+			this.z = Math.ceil( this.z );
+
+			return this;
+
+		},
+
+		round: function () {
+
+			this.x = Math.round( this.x );
+			this.y = Math.round( this.y );
+			this.z = Math.round( this.z );
+
+			return this;
+
+		},
+
+		roundToZero: function () {
+
+			this.x = ( this.x < 0 ) ? Math.ceil( this.x ) : Math.floor( this.x );
+			this.y = ( this.y < 0 ) ? Math.ceil( this.y ) : Math.floor( this.y );
+			this.z = ( this.z < 0 ) ? Math.ceil( this.z ) : Math.floor( this.z );
+
+			return this;
+
+		},
+
+		negate: function () {
+
+			this.x = - this.x;
+			this.y = - this.y;
+			this.z = - this.z;
+
+			return this;
+
+		},
+
+		dot: function ( v ) {
+
+			return this.x * v.x + this.y * v.y + this.z * v.z;
+
+		},
+
+		// TODO lengthSquared?
+
+		lengthSq: function () {
+
+			return this.x * this.x + this.y * this.y + this.z * this.z;
+
+		},
+
+		length: function () {
+
+			return Math.sqrt( this.x * this.x + this.y * this.y + this.z * this.z );
+
+		},
+
+		manhattanLength: function () {
+
+			return Math.abs( this.x ) + Math.abs( this.y ) + Math.abs( this.z );
+
+		},
+
+		normalize: function () {
+
+			return this.divideScalar( this.length() || 1 );
+
+		},
+
+		setLength: function ( length ) {
+
+			return this.normalize().multiplyScalar( length );
+
+		},
+
+		lerp: function ( v, alpha ) {
+
+			this.x += ( v.x - this.x ) * alpha;
+			this.y += ( v.y - this.y ) * alpha;
+			this.z += ( v.z - this.z ) * alpha;
+
+			return this;
+
+		},
+
+		lerpVectors: function ( v1, v2, alpha ) {
+
+			return this.subVectors( v2, v1 ).multiplyScalar( alpha ).add( v1 );
+
+		},
+
+		cross: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'mathsVector3: .cross() now only accepts one argument. Use .crossVectors( a, b ) instead.' );
+				return this.crossVectors( v, w );
+
+			}
+
+			return this.crossVectors( this, v );
+
+		},
+
+		crossVectors: function ( a, b ) {
+
+			var ax = a.x, ay = a.y, az = a.z;
+			var bx = b.x, by = b.y, bz = b.z;
+
+			this.x = ay * bz - az * by;
+			this.y = az * bx - ax * bz;
+			this.z = ax * by - ay * bx;
+
+			return this;
+
+		},
+
+		projectOnVector: function ( v ) {
+
+			var denominator = v.lengthSq();
+
+			if ( denominator === 0 ) return this.set( 0, 0, 0 );
+
+			var scalar = v.dot( this ) / denominator;
+
+			return this.copy( v ).multiplyScalar( scalar );
+
+		},
+
+		projectOnPlane: function ( planeNormal ) {
+
+			_vector.copy( this ).projectOnVector( planeNormal );
+
+			return this.sub( _vector );
+
+		},
+
+		reflect: function ( normal ) {
+
+			// reflect incident vector off plane orthogonal to normal
+			// normal is assumed to have unit length
+
+			return this.sub( _vector.copy( normal ).multiplyScalar( 2 * this.dot( normal ) ) );
+
+		},
+
+		angleTo: function ( v ) {
+
+			var denominator = Math.sqrt( this.lengthSq() * v.lengthSq() );
+
+			if ( denominator === 0 ) return Math.PI / 2;
+
+			var theta = this.dot( v ) / denominator;
+
+			// clamp, to handle numerical problems
+
+			return Math.acos( MathUtils.clamp( theta, - 1, 1 ) );
+
+		},
+
+		distanceTo: function ( v ) {
+
+			return Math.sqrt( this.distanceToSquared( v ) );
+
+		},
+
+		distanceToSquared: function ( v ) {
+
+			var dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z;
+
+			return dx * dx + dy * dy + dz * dz;
+
+		},
+
+		manhattanDistanceTo: function ( v ) {
+
+			return Math.abs( this.x - v.x ) + Math.abs( this.y - v.y ) + Math.abs( this.z - v.z );
+
+		},
+
+		setFromSpherical: function ( s ) {
+
+			return this.setFromSphericalCoords( s.radius, s.phi, s.theta );
+
+		},
+
+		setFromSphericalCoords: function ( radius, phi, theta ) {
+
+			var sinPhiRadius = Math.sin( phi ) * radius;
+
+			this.x = sinPhiRadius * Math.sin( theta );
+			this.y = Math.cos( phi ) * radius;
+			this.z = sinPhiRadius * Math.cos( theta );
+
+			return this;
+
+		},
+
+		setFromCylindrical: function ( c ) {
+
+			return this.setFromCylindricalCoords( c.radius, c.theta, c.y );
+
+		},
+
+		setFromCylindricalCoords: function ( radius, theta, y ) {
+
+			this.x = radius * Math.sin( theta );
+			this.y = y;
+			this.z = radius * Math.cos( theta );
+
+			return this;
+
+		},
+
+		setFromMatrixPosition: function ( m ) {
+
+			var e = m.elements;
+
+			this.x = e[ 12 ];
+			this.y = e[ 13 ];
+			this.z = e[ 14 ];
+
+			return this;
+
+		},
+
+		setFromMatrixScale: function ( m ) {
+
+			var sx = this.setFromMatrixColumn( m, 0 ).length();
+			var sy = this.setFromMatrixColumn( m, 1 ).length();
+			var sz = this.setFromMatrixColumn( m, 2 ).length();
+
+			this.x = sx;
+			this.y = sy;
+			this.z = sz;
+
+			return this;
+
+		},
+
+		setFromMatrixColumn: function ( m, index ) {
+
+			return this.fromArray( m.elements, index * 4 );
+
+		},
+
+		setFromMatrix3Column: function ( m, index ) {
+
+			return this.fromArray( m.elements, index * 3 );
+
+		},
+
+		equals: function ( v ) {
+
+			return ( ( v.x === this.x ) && ( v.y === this.y ) && ( v.z === this.z ) );
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			this.x = array[ offset ];
+			this.y = array[ offset + 1 ];
+			this.z = array[ offset + 2 ];
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			array[ offset ] = this.x;
+			array[ offset + 1 ] = this.y;
+			array[ offset + 2 ] = this.z;
+
+			return array;
+
+		},
+
+		fromBufferAttribute: function ( attribute, index, offset ) {
+
+			if ( offset !== undefined ) {
+
+				console.warn( 'mathsVector3: offset has been removed from .fromBufferAttribute().' );
+
+			}
+
+			this.x = attribute.getX( index );
+			this.y = attribute.getY( index );
+			this.z = attribute.getZ( index );
+
+			return this;
+
+		},
+
+
+		"_construct" : function ( x, y, z ) {
+
+			this.x = x || 0;
+			this.y = y || 0;
+			this.z = z || 0;
+
+		}
+
+	});
+
+	var _vector = new Vector3();
+
+
+	return numerics.Vector3 = Vector3;
+});
+define('skylark-langx-numerics/Matrix4',[
+	"skylark-langx-klass",
+	"./numerics",
+	"./Vector3"
+] ,function(
+	klass,
+	numerics,
+	Vector3
+) {
+
+	var _v1 = new Vector3();
+	var _zero = new Vector3( 0, 0, 0 );
+	var _one = new Vector3( 1, 1, 1 );
+	var _x = new Vector3();
+	var _y = new Vector3();
+	var _z = new Vector3();
+
+	var Matrix4 = klass({
+		set: function ( n11, n12, n13, n14, n21, n22, n23, n24, n31, n32, n33, n34, n41, n42, n43, n44 ) {
+
+			var te = this.elements;
+
+			te[ 0 ] = n11; te[ 4 ] = n12; te[ 8 ] = n13; te[ 12 ] = n14;
+			te[ 1 ] = n21; te[ 5 ] = n22; te[ 9 ] = n23; te[ 13 ] = n24;
+			te[ 2 ] = n31; te[ 6 ] = n32; te[ 10 ] = n33; te[ 14 ] = n34;
+			te[ 3 ] = n41; te[ 7 ] = n42; te[ 11 ] = n43; te[ 15 ] = n44;
+
+			return this;
+
+		},
+
+		identity: function () {
+
+			this.set(
+
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new Matrix4().fromArray( this.elements );
+
+		},
+
+		copy: function ( m ) {
+
+			var te = this.elements;
+			var me = m.elements;
+
+			te[ 0 ] = me[ 0 ]; te[ 1 ] = me[ 1 ]; te[ 2 ] = me[ 2 ]; te[ 3 ] = me[ 3 ];
+			te[ 4 ] = me[ 4 ]; te[ 5 ] = me[ 5 ]; te[ 6 ] = me[ 6 ]; te[ 7 ] = me[ 7 ];
+			te[ 8 ] = me[ 8 ]; te[ 9 ] = me[ 9 ]; te[ 10 ] = me[ 10 ]; te[ 11 ] = me[ 11 ];
+			te[ 12 ] = me[ 12 ]; te[ 13 ] = me[ 13 ]; te[ 14 ] = me[ 14 ]; te[ 15 ] = me[ 15 ];
+
+			return this;
+
+		},
+
+		copyPosition: function ( m ) {
+
+			var te = this.elements, me = m.elements;
+
+			te[ 12 ] = me[ 12 ];
+			te[ 13 ] = me[ 13 ];
+			te[ 14 ] = me[ 14 ];
+
+			return this;
+
+		},
+
+		extractBasis: function ( xAxis, yAxis, zAxis ) {
+
+			xAxis.setFromMatrixColumn( this, 0 );
+			yAxis.setFromMatrixColumn( this, 1 );
+			zAxis.setFromMatrixColumn( this, 2 );
+
+			return this;
+
+		},
+
+		makeBasis: function ( xAxis, yAxis, zAxis ) {
+
+			this.set(
+				xAxis.x, yAxis.x, zAxis.x, 0,
+				xAxis.y, yAxis.y, zAxis.y, 0,
+				xAxis.z, yAxis.z, zAxis.z, 0,
+				0, 0, 0, 1
+			);
+
+			return this;
+
+		},
+
+		extractRotation: function ( m ) {
+
+			// this method does not support reflection matrices
+
+			var te = this.elements;
+			var me = m.elements;
+
+			var scaleX = 1 / _v1.setFromMatrixColumn( m, 0 ).length();
+			var scaleY = 1 / _v1.setFromMatrixColumn( m, 1 ).length();
+			var scaleZ = 1 / _v1.setFromMatrixColumn( m, 2 ).length();
+
+			te[ 0 ] = me[ 0 ] * scaleX;
+			te[ 1 ] = me[ 1 ] * scaleX;
+			te[ 2 ] = me[ 2 ] * scaleX;
+			te[ 3 ] = 0;
+
+			te[ 4 ] = me[ 4 ] * scaleY;
+			te[ 5 ] = me[ 5 ] * scaleY;
+			te[ 6 ] = me[ 6 ] * scaleY;
+			te[ 7 ] = 0;
+
+			te[ 8 ] = me[ 8 ] * scaleZ;
+			te[ 9 ] = me[ 9 ] * scaleZ;
+			te[ 10 ] = me[ 10 ] * scaleZ;
+			te[ 11 ] = 0;
+
+			te[ 12 ] = 0;
+			te[ 13 ] = 0;
+			te[ 14 ] = 0;
+			te[ 15 ] = 1;
+
+			return this;
+
+		},
+
+		makeRotationFromEuler: function ( euler ) {
+
+			if ( ! ( euler && euler.isEuler ) ) {
+
+				console.error( 'mathsMatrix4: .makeRotationFromEuler() now expects a Euler rotation rather than a Vector3 and order.' );
+
+			}
+
+			var te = this.elements;
+
+			var x = euler.x, y = euler.y, z = euler.z;
+			var a = Math.cos( x ), b = Math.sin( x );
+			var c = Math.cos( y ), d = Math.sin( y );
+			var e = Math.cos( z ), f = Math.sin( z );
+
+			if ( euler.order === 'XYZ' ) {
+
+				var ae = a * e, af = a * f, be = b * e, bf = b * f;
+
+				te[ 0 ] = c * e;
+				te[ 4 ] = - c * f;
+				te[ 8 ] = d;
+
+				te[ 1 ] = af + be * d;
+				te[ 5 ] = ae - bf * d;
+				te[ 9 ] = - b * c;
+
+				te[ 2 ] = bf - ae * d;
+				te[ 6 ] = be + af * d;
+				te[ 10 ] = a * c;
+
+			} else if ( euler.order === 'YXZ' ) {
+
+				var ce = c * e, cf = c * f, de = d * e, df = d * f;
+
+				te[ 0 ] = ce + df * b;
+				te[ 4 ] = de * b - cf;
+				te[ 8 ] = a * d;
+
+				te[ 1 ] = a * f;
+				te[ 5 ] = a * e;
+				te[ 9 ] = - b;
+
+				te[ 2 ] = cf * b - de;
+				te[ 6 ] = df + ce * b;
+				te[ 10 ] = a * c;
+
+			} else if ( euler.order === 'ZXY' ) {
+
+				var ce = c * e, cf = c * f, de = d * e, df = d * f;
+
+				te[ 0 ] = ce - df * b;
+				te[ 4 ] = - a * f;
+				te[ 8 ] = de + cf * b;
+
+				te[ 1 ] = cf + de * b;
+				te[ 5 ] = a * e;
+				te[ 9 ] = df - ce * b;
+
+				te[ 2 ] = - a * d;
+				te[ 6 ] = b;
+				te[ 10 ] = a * c;
+
+			} else if ( euler.order === 'ZYX' ) {
+
+				var ae = a * e, af = a * f, be = b * e, bf = b * f;
+
+				te[ 0 ] = c * e;
+				te[ 4 ] = be * d - af;
+				te[ 8 ] = ae * d + bf;
+
+				te[ 1 ] = c * f;
+				te[ 5 ] = bf * d + ae;
+				te[ 9 ] = af * d - be;
+
+				te[ 2 ] = - d;
+				te[ 6 ] = b * c;
+				te[ 10 ] = a * c;
+
+			} else if ( euler.order === 'YZX' ) {
+
+				var ac = a * c, ad = a * d, bc = b * c, bd = b * d;
+
+				te[ 0 ] = c * e;
+				te[ 4 ] = bd - ac * f;
+				te[ 8 ] = bc * f + ad;
+
+				te[ 1 ] = f;
+				te[ 5 ] = a * e;
+				te[ 9 ] = - b * e;
+
+				te[ 2 ] = - d * e;
+				te[ 6 ] = ad * f + bc;
+				te[ 10 ] = ac - bd * f;
+
+			} else if ( euler.order === 'XZY' ) {
+
+				var ac = a * c, ad = a * d, bc = b * c, bd = b * d;
+
+				te[ 0 ] = c * e;
+				te[ 4 ] = - f;
+				te[ 8 ] = d * e;
+
+				te[ 1 ] = ac * f + bd;
+				te[ 5 ] = a * e;
+				te[ 9 ] = ad * f - bc;
+
+				te[ 2 ] = bc * f - ad;
+				te[ 6 ] = b * e;
+				te[ 10 ] = bd * f + ac;
+
+			}
+
+			// bottom row
+			te[ 3 ] = 0;
+			te[ 7 ] = 0;
+			te[ 11 ] = 0;
+
+			// last column
+			te[ 12 ] = 0;
+			te[ 13 ] = 0;
+			te[ 14 ] = 0;
+			te[ 15 ] = 1;
+
+			return this;
+
+		},
+
+		makeRotationFromQuaternion: function ( q ) {
+
+			return this.compose( _zero, q, _one );
+
+		},
+
+		lookAt: function ( eye, target, up ) {
+
+			var te = this.elements;
+
+			_z.subVectors( eye, target );
+
+			if ( _z.lengthSq() === 0 ) {
+
+				// eye and target are in the same position
+
+				_z.z = 1;
+
+			}
+
+			_z.normalize();
+			_x.crossVectors( up, _z );
+
+			if ( _x.lengthSq() === 0 ) {
+
+				// up and z are parallel
+
+				if ( Math.abs( up.z ) === 1 ) {
+
+					_z.x += 0.0001;
+
+				} else {
+
+					_z.z += 0.0001;
+
+				}
+
+				_z.normalize();
+				_x.crossVectors( up, _z );
+
+			}
+
+			_x.normalize();
+			_y.crossVectors( _z, _x );
+
+			te[ 0 ] = _x.x; te[ 4 ] = _y.x; te[ 8 ] = _z.x;
+			te[ 1 ] = _x.y; te[ 5 ] = _y.y; te[ 9 ] = _z.y;
+			te[ 2 ] = _x.z; te[ 6 ] = _y.z; te[ 10 ] = _z.z;
+
+			return this;
+
+		},
+
+		multiply: function ( m, n ) {
+
+			if ( n !== undefined ) {
+
+				console.warn( 'mathsMatrix4: .multiply() now only accepts one argument. Use .multiplyMatrices( a, b ) instead.' );
+				return this.multiplyMatrices( m, n );
+
+			}
+
+			return this.multiplyMatrices( this, m );
+
+		},
+
+		premultiply: function ( m ) {
+
+			return this.multiplyMatrices( m, this );
+
+		},
+
+		multiplyMatrices: function ( a, b ) {
+
+			var ae = a.elements;
+			var be = b.elements;
+			var te = this.elements;
+
+			var a11 = ae[ 0 ], a12 = ae[ 4 ], a13 = ae[ 8 ], a14 = ae[ 12 ];
+			var a21 = ae[ 1 ], a22 = ae[ 5 ], a23 = ae[ 9 ], a24 = ae[ 13 ];
+			var a31 = ae[ 2 ], a32 = ae[ 6 ], a33 = ae[ 10 ], a34 = ae[ 14 ];
+			var a41 = ae[ 3 ], a42 = ae[ 7 ], a43 = ae[ 11 ], a44 = ae[ 15 ];
+
+			var b11 = be[ 0 ], b12 = be[ 4 ], b13 = be[ 8 ], b14 = be[ 12 ];
+			var b21 = be[ 1 ], b22 = be[ 5 ], b23 = be[ 9 ], b24 = be[ 13 ];
+			var b31 = be[ 2 ], b32 = be[ 6 ], b33 = be[ 10 ], b34 = be[ 14 ];
+			var b41 = be[ 3 ], b42 = be[ 7 ], b43 = be[ 11 ], b44 = be[ 15 ];
+
+			te[ 0 ] = a11 * b11 + a12 * b21 + a13 * b31 + a14 * b41;
+			te[ 4 ] = a11 * b12 + a12 * b22 + a13 * b32 + a14 * b42;
+			te[ 8 ] = a11 * b13 + a12 * b23 + a13 * b33 + a14 * b43;
+			te[ 12 ] = a11 * b14 + a12 * b24 + a13 * b34 + a14 * b44;
+
+			te[ 1 ] = a21 * b11 + a22 * b21 + a23 * b31 + a24 * b41;
+			te[ 5 ] = a21 * b12 + a22 * b22 + a23 * b32 + a24 * b42;
+			te[ 9 ] = a21 * b13 + a22 * b23 + a23 * b33 + a24 * b43;
+			te[ 13 ] = a21 * b14 + a22 * b24 + a23 * b34 + a24 * b44;
+
+			te[ 2 ] = a31 * b11 + a32 * b21 + a33 * b31 + a34 * b41;
+			te[ 6 ] = a31 * b12 + a32 * b22 + a33 * b32 + a34 * b42;
+			te[ 10 ] = a31 * b13 + a32 * b23 + a33 * b33 + a34 * b43;
+			te[ 14 ] = a31 * b14 + a32 * b24 + a33 * b34 + a34 * b44;
+
+			te[ 3 ] = a41 * b11 + a42 * b21 + a43 * b31 + a44 * b41;
+			te[ 7 ] = a41 * b12 + a42 * b22 + a43 * b32 + a44 * b42;
+			te[ 11 ] = a41 * b13 + a42 * b23 + a43 * b33 + a44 * b43;
+			te[ 15 ] = a41 * b14 + a42 * b24 + a43 * b34 + a44 * b44;
+
+			return this;
+
+		},
+
+		multiplyScalar: function ( s ) {
+
+			var te = this.elements;
+
+			te[ 0 ] *= s; te[ 4 ] *= s; te[ 8 ] *= s; te[ 12 ] *= s;
+			te[ 1 ] *= s; te[ 5 ] *= s; te[ 9 ] *= s; te[ 13 ] *= s;
+			te[ 2 ] *= s; te[ 6 ] *= s; te[ 10 ] *= s; te[ 14 ] *= s;
+			te[ 3 ] *= s; te[ 7 ] *= s; te[ 11 ] *= s; te[ 15 ] *= s;
+
+			return this;
+
+		},
+
+		determinant: function () {
+
+			var te = this.elements;
+
+			var n11 = te[ 0 ], n12 = te[ 4 ], n13 = te[ 8 ], n14 = te[ 12 ];
+			var n21 = te[ 1 ], n22 = te[ 5 ], n23 = te[ 9 ], n24 = te[ 13 ];
+			var n31 = te[ 2 ], n32 = te[ 6 ], n33 = te[ 10 ], n34 = te[ 14 ];
+			var n41 = te[ 3 ], n42 = te[ 7 ], n43 = te[ 11 ], n44 = te[ 15 ];
+
+			//TODO: make this more efficient
+			//( based on http://www.euclideanspace.com/maths/algebra/matrix/functions/inverse/fourD/index.htm )
+
+			return (
+				n41 * (
+					+ n14 * n23 * n32
+					 - n13 * n24 * n32
+					 - n14 * n22 * n33
+					 + n12 * n24 * n33
+					 + n13 * n22 * n34
+					 - n12 * n23 * n34
+				) +
+				n42 * (
+					+ n11 * n23 * n34
+					 - n11 * n24 * n33
+					 + n14 * n21 * n33
+					 - n13 * n21 * n34
+					 + n13 * n24 * n31
+					 - n14 * n23 * n31
+				) +
+				n43 * (
+					+ n11 * n24 * n32
+					 - n11 * n22 * n34
+					 - n14 * n21 * n32
+					 + n12 * n21 * n34
+					 + n14 * n22 * n31
+					 - n12 * n24 * n31
+				) +
+				n44 * (
+					- n13 * n22 * n31
+					 - n11 * n23 * n32
+					 + n11 * n22 * n33
+					 + n13 * n21 * n32
+					 - n12 * n21 * n33
+					 + n12 * n23 * n31
+				)
+
+			);
+
+		},
+
+		transpose: function () {
+
+			var te = this.elements;
+			var tmp;
+
+			tmp = te[ 1 ]; te[ 1 ] = te[ 4 ]; te[ 4 ] = tmp;
+			tmp = te[ 2 ]; te[ 2 ] = te[ 8 ]; te[ 8 ] = tmp;
+			tmp = te[ 6 ]; te[ 6 ] = te[ 9 ]; te[ 9 ] = tmp;
+
+			tmp = te[ 3 ]; te[ 3 ] = te[ 12 ]; te[ 12 ] = tmp;
+			tmp = te[ 7 ]; te[ 7 ] = te[ 13 ]; te[ 13 ] = tmp;
+			tmp = te[ 11 ]; te[ 11 ] = te[ 14 ]; te[ 14 ] = tmp;
+
+			return this;
+
+		},
+
+		setPosition: function ( x, y, z ) {
+
+			var te = this.elements;
+
+			if ( x.isVector3 ) {
+
+				te[ 12 ] = x.x;
+				te[ 13 ] = x.y;
+				te[ 14 ] = x.z;
+
+			} else {
+
+				te[ 12 ] = x;
+				te[ 13 ] = y;
+				te[ 14 ] = z;
+
+			}
+
+			return this;
+
+		},
+
+		getInverse: function ( m, throwOnDegenerate ) {
+
+			if ( throwOnDegenerate !== undefined ) {
+
+				console.warn( "mathsMatrix4: .getInverse() can no longer be configured to throw on degenerate." );
+
+			}
+
+			// based on http://www.euclideanspace.com/maths/algebra/matrix/functions/inverse/fourD/index.htm
+			var te = this.elements,
+				me = m.elements,
+
+				n11 = me[ 0 ], n21 = me[ 1 ], n31 = me[ 2 ], n41 = me[ 3 ],
+				n12 = me[ 4 ], n22 = me[ 5 ], n32 = me[ 6 ], n42 = me[ 7 ],
+				n13 = me[ 8 ], n23 = me[ 9 ], n33 = me[ 10 ], n43 = me[ 11 ],
+				n14 = me[ 12 ], n24 = me[ 13 ], n34 = me[ 14 ], n44 = me[ 15 ],
+
+				t11 = n23 * n34 * n42 - n24 * n33 * n42 + n24 * n32 * n43 - n22 * n34 * n43 - n23 * n32 * n44 + n22 * n33 * n44,
+				t12 = n14 * n33 * n42 - n13 * n34 * n42 - n14 * n32 * n43 + n12 * n34 * n43 + n13 * n32 * n44 - n12 * n33 * n44,
+				t13 = n13 * n24 * n42 - n14 * n23 * n42 + n14 * n22 * n43 - n12 * n24 * n43 - n13 * n22 * n44 + n12 * n23 * n44,
+				t14 = n14 * n23 * n32 - n13 * n24 * n32 - n14 * n22 * n33 + n12 * n24 * n33 + n13 * n22 * n34 - n12 * n23 * n34;
+
+			var det = n11 * t11 + n21 * t12 + n31 * t13 + n41 * t14;
+
+			if ( det === 0 ) return this.set( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 );
+
+			var detInv = 1 / det;
+
+			te[ 0 ] = t11 * detInv;
+			te[ 1 ] = ( n24 * n33 * n41 - n23 * n34 * n41 - n24 * n31 * n43 + n21 * n34 * n43 + n23 * n31 * n44 - n21 * n33 * n44 ) * detInv;
+			te[ 2 ] = ( n22 * n34 * n41 - n24 * n32 * n41 + n24 * n31 * n42 - n21 * n34 * n42 - n22 * n31 * n44 + n21 * n32 * n44 ) * detInv;
+			te[ 3 ] = ( n23 * n32 * n41 - n22 * n33 * n41 - n23 * n31 * n42 + n21 * n33 * n42 + n22 * n31 * n43 - n21 * n32 * n43 ) * detInv;
+
+			te[ 4 ] = t12 * detInv;
+			te[ 5 ] = ( n13 * n34 * n41 - n14 * n33 * n41 + n14 * n31 * n43 - n11 * n34 * n43 - n13 * n31 * n44 + n11 * n33 * n44 ) * detInv;
+			te[ 6 ] = ( n14 * n32 * n41 - n12 * n34 * n41 - n14 * n31 * n42 + n11 * n34 * n42 + n12 * n31 * n44 - n11 * n32 * n44 ) * detInv;
+			te[ 7 ] = ( n12 * n33 * n41 - n13 * n32 * n41 + n13 * n31 * n42 - n11 * n33 * n42 - n12 * n31 * n43 + n11 * n32 * n43 ) * detInv;
+
+			te[ 8 ] = t13 * detInv;
+			te[ 9 ] = ( n14 * n23 * n41 - n13 * n24 * n41 - n14 * n21 * n43 + n11 * n24 * n43 + n13 * n21 * n44 - n11 * n23 * n44 ) * detInv;
+			te[ 10 ] = ( n12 * n24 * n41 - n14 * n22 * n41 + n14 * n21 * n42 - n11 * n24 * n42 - n12 * n21 * n44 + n11 * n22 * n44 ) * detInv;
+			te[ 11 ] = ( n13 * n22 * n41 - n12 * n23 * n41 - n13 * n21 * n42 + n11 * n23 * n42 + n12 * n21 * n43 - n11 * n22 * n43 ) * detInv;
+
+			te[ 12 ] = t14 * detInv;
+			te[ 13 ] = ( n13 * n24 * n31 - n14 * n23 * n31 + n14 * n21 * n33 - n11 * n24 * n33 - n13 * n21 * n34 + n11 * n23 * n34 ) * detInv;
+			te[ 14 ] = ( n14 * n22 * n31 - n12 * n24 * n31 - n14 * n21 * n32 + n11 * n24 * n32 + n12 * n21 * n34 - n11 * n22 * n34 ) * detInv;
+			te[ 15 ] = ( n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33 ) * detInv;
+
+			return this;
+
+		},
+
+		scale: function ( v ) {
+
+			var te = this.elements;
+			var x = v.x, y = v.y, z = v.z;
+
+			te[ 0 ] *= x; te[ 4 ] *= y; te[ 8 ] *= z;
+			te[ 1 ] *= x; te[ 5 ] *= y; te[ 9 ] *= z;
+			te[ 2 ] *= x; te[ 6 ] *= y; te[ 10 ] *= z;
+			te[ 3 ] *= x; te[ 7 ] *= y; te[ 11 ] *= z;
+
+			return this;
+
+		},
+
+		getMaxScaleOnAxis: function () {
+
+			var te = this.elements;
+
+			var scaleXSq = te[ 0 ] * te[ 0 ] + te[ 1 ] * te[ 1 ] + te[ 2 ] * te[ 2 ];
+			var scaleYSq = te[ 4 ] * te[ 4 ] + te[ 5 ] * te[ 5 ] + te[ 6 ] * te[ 6 ];
+			var scaleZSq = te[ 8 ] * te[ 8 ] + te[ 9 ] * te[ 9 ] + te[ 10 ] * te[ 10 ];
+
+			return Math.sqrt( Math.max( scaleXSq, scaleYSq, scaleZSq ) );
+
+		},
+
+		makeTranslation: function ( x, y, z ) {
+
+			this.set(
+
+				1, 0, 0, x,
+				0, 1, 0, y,
+				0, 0, 1, z,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		makeRotationX: function ( theta ) {
+
+			var c = Math.cos( theta ), s = Math.sin( theta );
+
+			this.set(
+
+				1, 0, 0, 0,
+				0, c, - s, 0,
+				0, s, c, 0,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		makeRotationY: function ( theta ) {
+
+			var c = Math.cos( theta ), s = Math.sin( theta );
+
+			this.set(
+
+				 c, 0, s, 0,
+				 0, 1, 0, 0,
+				- s, 0, c, 0,
+				 0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		makeRotationZ: function ( theta ) {
+
+			var c = Math.cos( theta ), s = Math.sin( theta );
+
+			this.set(
+
+				c, - s, 0, 0,
+				s, c, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		makeRotationAxis: function ( axis, angle ) {
+
+			// Based on http://www.gamedev.net/reference/articles/article1199.asp
+
+			var c = Math.cos( angle );
+			var s = Math.sin( angle );
+			var t = 1 - c;
+			var x = axis.x, y = axis.y, z = axis.z;
+			var tx = t * x, ty = t * y;
+
+			this.set(
+
+				tx * x + c, tx * y - s * z, tx * z + s * y, 0,
+				tx * y + s * z, ty * y + c, ty * z - s * x, 0,
+				tx * z - s * y, ty * z + s * x, t * z * z + c, 0,
+				0, 0, 0, 1
+
+			);
+
+			 return this;
+
+		},
+
+		makeScale: function ( x, y, z ) {
+
+			this.set(
+
+				x, 0, 0, 0,
+				0, y, 0, 0,
+				0, 0, z, 0,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		makeShear: function ( x, y, z ) {
+
+			this.set(
+
+				1, y, z, 0,
+				x, 1, z, 0,
+				x, y, 1, 0,
+				0, 0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		compose: function ( position, quaternion, scale ) {
+
+			var te = this.elements;
+
+			var x = quaternion._x, y = quaternion._y, z = quaternion._z, w = quaternion._w;
+			var x2 = x + x,	y2 = y + y, z2 = z + z;
+			var xx = x * x2, xy = x * y2, xz = x * z2;
+			var yy = y * y2, yz = y * z2, zz = z * z2;
+			var wx = w * x2, wy = w * y2, wz = w * z2;
+
+			var sx = scale.x, sy = scale.y, sz = scale.z;
+
+			te[ 0 ] = ( 1 - ( yy + zz ) ) * sx;
+			te[ 1 ] = ( xy + wz ) * sx;
+			te[ 2 ] = ( xz - wy ) * sx;
+			te[ 3 ] = 0;
+
+			te[ 4 ] = ( xy - wz ) * sy;
+			te[ 5 ] = ( 1 - ( xx + zz ) ) * sy;
+			te[ 6 ] = ( yz + wx ) * sy;
+			te[ 7 ] = 0;
+
+			te[ 8 ] = ( xz + wy ) * sz;
+			te[ 9 ] = ( yz - wx ) * sz;
+			te[ 10 ] = ( 1 - ( xx + yy ) ) * sz;
+			te[ 11 ] = 0;
+
+			te[ 12 ] = position.x;
+			te[ 13 ] = position.y;
+			te[ 14 ] = position.z;
+			te[ 15 ] = 1;
+
+			return this;
+
+		},
+
+		decompose: function ( position, quaternion, scale ) {
+
+			var te = this.elements;
+
+			var sx = _v1.set( te[ 0 ], te[ 1 ], te[ 2 ] ).length();
+			var sy = _v1.set( te[ 4 ], te[ 5 ], te[ 6 ] ).length();
+			var sz = _v1.set( te[ 8 ], te[ 9 ], te[ 10 ] ).length();
+
+			// if determine is negative, we need to invert one scale
+			var det = this.determinant();
+			if ( det < 0 ) sx = - sx;
+
+			position.x = te[ 12 ];
+			position.y = te[ 13 ];
+			position.z = te[ 14 ];
+
+			// scale the rotation part
+			_m1.copy( this );
+
+			var invSX = 1 / sx;
+			var invSY = 1 / sy;
+			var invSZ = 1 / sz;
+
+			_m1.elements[ 0 ] *= invSX;
+			_m1.elements[ 1 ] *= invSX;
+			_m1.elements[ 2 ] *= invSX;
+
+			_m1.elements[ 4 ] *= invSY;
+			_m1.elements[ 5 ] *= invSY;
+			_m1.elements[ 6 ] *= invSY;
+
+			_m1.elements[ 8 ] *= invSZ;
+			_m1.elements[ 9 ] *= invSZ;
+			_m1.elements[ 10 ] *= invSZ;
+
+			quaternion.setFromRotationMatrix( _m1 );
+
+			scale.x = sx;
+			scale.y = sy;
+			scale.z = sz;
+
+			return this;
+
+		},
+
+		makePerspective: function ( left, right, top, bottom, near, far ) {
+
+			if ( far === undefined ) {
+
+				console.warn( 'mathsMatrix4: .makePerspective() has been redefined and has a new signature. Please check the docs.' );
+
+			}
+
+			var te = this.elements;
+			var x = 2 * near / ( right - left );
+			var y = 2 * near / ( top - bottom );
+
+			var a = ( right + left ) / ( right - left );
+			var b = ( top + bottom ) / ( top - bottom );
+			var c = - ( far + near ) / ( far - near );
+			var d = - 2 * far * near / ( far - near );
+
+			te[ 0 ] = x;	te[ 4 ] = 0;	te[ 8 ] = a;	te[ 12 ] = 0;
+			te[ 1 ] = 0;	te[ 5 ] = y;	te[ 9 ] = b;	te[ 13 ] = 0;
+			te[ 2 ] = 0;	te[ 6 ] = 0;	te[ 10 ] = c;	te[ 14 ] = d;
+			te[ 3 ] = 0;	te[ 7 ] = 0;	te[ 11 ] = - 1;	te[ 15 ] = 0;
+
+			return this;
+
+		},
+
+		makeOrthographic: function ( left, right, top, bottom, near, far ) {
+
+			var te = this.elements;
+			var w = 1.0 / ( right - left );
+			var h = 1.0 / ( top - bottom );
+			var p = 1.0 / ( far - near );
+
+			var x = ( right + left ) * w;
+			var y = ( top + bottom ) * h;
+			var z = ( far + near ) * p;
+
+			te[ 0 ] = 2 * w;	te[ 4 ] = 0;	te[ 8 ] = 0;	te[ 12 ] = - x;
+			te[ 1 ] = 0;	te[ 5 ] = 2 * h;	te[ 9 ] = 0;	te[ 13 ] = - y;
+			te[ 2 ] = 0;	te[ 6 ] = 0;	te[ 10 ] = - 2 * p;	te[ 14 ] = - z;
+			te[ 3 ] = 0;	te[ 7 ] = 0;	te[ 11 ] = 0;	te[ 15 ] = 1;
+
+			return this;
+
+		},
+
+		equals: function ( matrix ) {
+
+			var te = this.elements;
+			var me = matrix.elements;
+
+			for ( var i = 0; i < 16; i ++ ) {
+
+				if ( te[ i ] !== me[ i ] ) return false;
+
+			}
+
+			return true;
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			for ( var i = 0; i < 16; i ++ ) {
+
+				this.elements[ i ] = array[ i + offset ];
+
+			}
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			var te = this.elements;
+
+			array[ offset ] = te[ 0 ];
+			array[ offset + 1 ] = te[ 1 ];
+			array[ offset + 2 ] = te[ 2 ];
+			array[ offset + 3 ] = te[ 3 ];
+
+			array[ offset + 4 ] = te[ 4 ];
+			array[ offset + 5 ] = te[ 5 ];
+			array[ offset + 6 ] = te[ 6 ];
+			array[ offset + 7 ] = te[ 7 ];
+
+			array[ offset + 8 ] = te[ 8 ];
+			array[ offset + 9 ] = te[ 9 ];
+			array[ offset + 10 ] = te[ 10 ];
+			array[ offset + 11 ] = te[ 11 ];
+
+			array[ offset + 12 ] = te[ 12 ];
+			array[ offset + 13 ] = te[ 13 ];
+			array[ offset + 14 ] = te[ 14 ];
+			array[ offset + 15 ] = te[ 15 ];
+
+			return array;
+
+		},
+
+		"_construct" : function() {
+
+			this.elements = [
+
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1
+
+			];
+
+			if ( arguments.length > 0 ) {
+
+				console.error( 'mathsMatrix4: the constructor no longer reads arguments. use .set() instead.' );
+
+			}
+
+		}
+
+	});
+
+	var _m1 = new Matrix4();
+
+	return numerics.Matrix4 =  Matrix4 ;
+
+});
+define('skylark-langx-numerics/Euler',[
+	"skylark-langx-klass",
+	"./numerics",
+	"./maths",
+	"./Quaternion",
+	"./Vector3",
+	"./Matrix4"
+] ,function(
+	klass,
+	numerics,
+	maths,
+	Quaternion,
+	Vector3,
+	Matrix4
+) {
+
+	var _matrix = new Matrix4();
+	var _quaternion = new Quaternion();
+
+	var Euler = klass({
+		x: {
+
+			get: function () {
+
+				return this._x;
+
+			},
+
+			set: function ( value ) {
+
+				this._x = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		y: {
+
+			get: function () {
+
+				return this._y;
+
+			},
+
+			set: function ( value ) {
+
+				this._y = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		z: {
+
+			get: function () {
+
+				return this._z;
+
+			},
+
+			set: function ( value ) {
+
+				this._z = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		order: {
+
+			get: function () {
+
+				return this._order;
+
+			},
+
+			set: function ( value ) {
+
+				this._order = value;
+				this._onChangeCallback();
+
+			}
+
+		},
+
+		isEuler: true,
+
+		set: function ( x, y, z, order ) {
+
+			this._x = x;
+			this._y = y;
+			this._z = z;
+			this._order = order || this._order;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new this.constructor( this._x, this._y, this._z, this._order );
+
+		},
+
+		copy: function ( euler ) {
+
+			this._x = euler._x;
+			this._y = euler._y;
+			this._z = euler._z;
+			this._order = euler._order;
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromRotationMatrix: function ( m, order, update ) {
+
+			var clamp = maths.clamp;
+
+			// assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
+
+			var te = m.elements;
+			var m11 = te[ 0 ], m12 = te[ 4 ], m13 = te[ 8 ];
+			var m21 = te[ 1 ], m22 = te[ 5 ], m23 = te[ 9 ];
+			var m31 = te[ 2 ], m32 = te[ 6 ], m33 = te[ 10 ];
+
+			order = order || this._order;
+
+			if ( order === 'XYZ' ) {
+
+				this._y = Math.asin( clamp( m13, - 1, 1 ) );
+
+				if ( Math.abs( m13 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( - m23, m33 );
+					this._z = Math.atan2( - m12, m11 );
+
+				} else {
+
+					this._x = Math.atan2( m32, m22 );
+					this._z = 0;
+
+				}
+
+			} else if ( order === 'YXZ' ) {
+
+				this._x = Math.asin( - clamp( m23, - 1, 1 ) );
+
+				if ( Math.abs( m23 ) < 0.9999999 ) {
+
+					this._y = Math.atan2( m13, m33 );
+					this._z = Math.atan2( m21, m22 );
+
+				} else {
+
+					this._y = Math.atan2( - m31, m11 );
+					this._z = 0;
+
+				}
+
+			} else if ( order === 'ZXY' ) {
+
+				this._x = Math.asin( clamp( m32, - 1, 1 ) );
+
+				if ( Math.abs( m32 ) < 0.9999999 ) {
+
+					this._y = Math.atan2( - m31, m33 );
+					this._z = Math.atan2( - m12, m22 );
+
+				} else {
+
+					this._y = 0;
+					this._z = Math.atan2( m21, m11 );
+
+				}
+
+			} else if ( order === 'ZYX' ) {
+
+				this._y = Math.asin( - clamp( m31, - 1, 1 ) );
+
+				if ( Math.abs( m31 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( m32, m33 );
+					this._z = Math.atan2( m21, m11 );
+
+				} else {
+
+					this._x = 0;
+					this._z = Math.atan2( - m12, m22 );
+
+				}
+
+			} else if ( order === 'YZX' ) {
+
+				this._z = Math.asin( clamp( m21, - 1, 1 ) );
+
+				if ( Math.abs( m21 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( - m23, m22 );
+					this._y = Math.atan2( - m31, m11 );
+
+				} else {
+
+					this._x = 0;
+					this._y = Math.atan2( m13, m33 );
+
+				}
+
+			} else if ( order === 'XZY' ) {
+
+				this._z = Math.asin( - clamp( m12, - 1, 1 ) );
+
+				if ( Math.abs( m12 ) < 0.9999999 ) {
+
+					this._x = Math.atan2( m32, m22 );
+					this._y = Math.atan2( m13, m11 );
+
+				} else {
+
+					this._x = Math.atan2( - m23, m33 );
+					this._y = 0;
+
+				}
+
+			} else {
+
+				console.warn( 'skylark-nunustudio/editor/gui/element/RendererCanvasEuler: .setFromRotationMatrix() given unsupported order: ' + order );
+
+			}
+
+			this._order = order;
+
+			if ( update !== false ) this._onChangeCallback();
+
+			return this;
+
+		},
+
+		setFromQuaternion: function ( q, order, update ) {
+
+			_matrix.makeRotationFromQuaternion( q );
+
+			return this.setFromRotationMatrix( _matrix, order, update );
+
+		},
+
+		setFromVector3: function ( v, order ) {
+
+			return this.set( v.x, v.y, v.z, order || this._order );
+
+		},
+
+		reorder: function ( newOrder ) {
+
+			// WARNING: this discards revolution information -bhouston
+
+			_quaternion.setFromEuler( this );
+
+			return this.setFromQuaternion( _quaternion, newOrder );
+
+		},
+
+		equals: function ( euler ) {
+
+			return ( euler._x === this._x ) && ( euler._y === this._y ) && ( euler._z === this._z ) && ( euler._order === this._order );
+
+		},
+
+		fromArray: function ( array ) {
+
+			this._x = array[ 0 ];
+			this._y = array[ 1 ];
+			this._z = array[ 2 ];
+			if ( array[ 3 ] !== undefined ) this._order = array[ 3 ];
+
+			this._onChangeCallback();
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			array[ offset ] = this._x;
+			array[ offset + 1 ] = this._y;
+			array[ offset + 2 ] = this._z;
+			array[ offset + 3 ] = this._order;
+
+			return array;
+
+		},
+
+		toVector3: function ( optionalResult ) {
+
+			if ( optionalResult ) {
+
+				return optionalResult.set( this._x, this._y, this._z );
+
+			} else {
+
+				return new Vector3( this._x, this._y, this._z );
+
+			}
+
+		},
+
+		_onChange: function ( callback ) {
+
+			this._onChangeCallback = callback;
+
+			return this;
+
+		},
+
+		_onChangeCallback: function () {},
+
+
+		"_construct" : function ( x, y, z, order ) {
+
+			this._x = x || 0;
+			this._y = y || 0;
+			this._z = z || 0;
+			this._order = order || Euler.DefaultOrder;
+
+		}
+
+
+	});
+
+
+	Euler.RotationOrders = [ 'XYZ', 'YZX', 'ZXY', 'XZY', 'YXZ', 'ZYX' ];
+
+	Euler.DefaultOrder = 'XYZ';
+
+
+	return numerics.Euler = Euler ;
+});
+
+define('skylark-langx-numerics/Matrix3',[
+	"skylark-langx-klass",
+	"./numerics"
+] ,function(klass,numerics) {
+
+	var Matrix3 = klass({
+		"klassName" : "Matrix3",
+
+		isMatrix3: true,
+
+		set: function ( n11, n12, n13, n21, n22, n23, n31, n32, n33 ) {
+
+			var te = this.elements;
+
+			te[ 0 ] = n11; te[ 1 ] = n21; te[ 2 ] = n31;
+			te[ 3 ] = n12; te[ 4 ] = n22; te[ 5 ] = n32;
+			te[ 6 ] = n13; te[ 7 ] = n23; te[ 8 ] = n33;
+
+			return this;
+
+		},
+
+		identity: function () {
+
+			this.set(
+
+				1, 0, 0,
+				0, 1, 0,
+				0, 0, 1
+
+			);
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new this.constructor().fromArray( this.elements );
+
+		},
+
+		copy: function ( m ) {
+
+			var te = this.elements;
+			var me = m.elements;
+
+			te[ 0 ] = me[ 0 ]; te[ 1 ] = me[ 1 ]; te[ 2 ] = me[ 2 ];
+			te[ 3 ] = me[ 3 ]; te[ 4 ] = me[ 4 ]; te[ 5 ] = me[ 5 ];
+			te[ 6 ] = me[ 6 ]; te[ 7 ] = me[ 7 ]; te[ 8 ] = me[ 8 ];
+
+			return this;
+
+		},
+
+		extractBasis: function ( xAxis, yAxis, zAxis ) {
+
+			xAxis.setFromMatrix3Column( this, 0 );
+			yAxis.setFromMatrix3Column( this, 1 );
+			zAxis.setFromMatrix3Column( this, 2 );
+
+			return this;
+
+		},
+
+		setFromMatrix4: function ( m ) {
+
+			var me = m.elements;
+
+			this.set(
+
+				me[ 0 ], me[ 4 ], me[ 8 ],
+				me[ 1 ], me[ 5 ], me[ 9 ],
+				me[ 2 ], me[ 6 ], me[ 10 ]
+
+			);
+
+			return this;
+
+		},
+
+		multiply: function ( m ) {
+
+			return this.multiplyMatrices( this, m );
+
+		},
+
+		premultiply: function ( m ) {
+
+			return this.multiplyMatrices( m, this );
+
+		},
+
+		multiplyMatrices: function ( a, b ) {
+
+			var ae = a.elements;
+			var be = b.elements;
+			var te = this.elements;
+
+			var a11 = ae[ 0 ], a12 = ae[ 3 ], a13 = ae[ 6 ];
+			var a21 = ae[ 1 ], a22 = ae[ 4 ], a23 = ae[ 7 ];
+			var a31 = ae[ 2 ], a32 = ae[ 5 ], a33 = ae[ 8 ];
+
+			var b11 = be[ 0 ], b12 = be[ 3 ], b13 = be[ 6 ];
+			var b21 = be[ 1 ], b22 = be[ 4 ], b23 = be[ 7 ];
+			var b31 = be[ 2 ], b32 = be[ 5 ], b33 = be[ 8 ];
+
+			te[ 0 ] = a11 * b11 + a12 * b21 + a13 * b31;
+			te[ 3 ] = a11 * b12 + a12 * b22 + a13 * b32;
+			te[ 6 ] = a11 * b13 + a12 * b23 + a13 * b33;
+
+			te[ 1 ] = a21 * b11 + a22 * b21 + a23 * b31;
+			te[ 4 ] = a21 * b12 + a22 * b22 + a23 * b32;
+			te[ 7 ] = a21 * b13 + a22 * b23 + a23 * b33;
+
+			te[ 2 ] = a31 * b11 + a32 * b21 + a33 * b31;
+			te[ 5 ] = a31 * b12 + a32 * b22 + a33 * b32;
+			te[ 8 ] = a31 * b13 + a32 * b23 + a33 * b33;
+
+			return this;
+
+		},
+
+		multiplyScalar: function ( s ) {
+
+			var te = this.elements;
+
+			te[ 0 ] *= s; te[ 3 ] *= s; te[ 6 ] *= s;
+			te[ 1 ] *= s; te[ 4 ] *= s; te[ 7 ] *= s;
+			te[ 2 ] *= s; te[ 5 ] *= s; te[ 8 ] *= s;
+
+			return this;
+
+		},
+
+		determinant: function () {
+
+			var te = this.elements;
+
+			var a = te[ 0 ], b = te[ 1 ], c = te[ 2 ],
+				d = te[ 3 ], e = te[ 4 ], f = te[ 5 ],
+				g = te[ 6 ], h = te[ 7 ], i = te[ 8 ];
+
+			return a * e * i - a * f * h - b * d * i + b * f * g + c * d * h - c * e * g;
+
+		},
+
+		getInverse: function ( matrix, throwOnDegenerate ) {
+
+			if ( throwOnDegenerate !== undefined ) {
+
+				console.warn( "mathsMatrix3: .getInverse() can no longer be configured to throw on degenerate." );
+
+			}
+
+			var me = matrix.elements,
+				te = this.elements,
+
+				n11 = me[ 0 ], n21 = me[ 1 ], n31 = me[ 2 ],
+				n12 = me[ 3 ], n22 = me[ 4 ], n32 = me[ 5 ],
+				n13 = me[ 6 ], n23 = me[ 7 ], n33 = me[ 8 ],
+
+				t11 = n33 * n22 - n32 * n23,
+				t12 = n32 * n13 - n33 * n12,
+				t13 = n23 * n12 - n22 * n13,
+
+				det = n11 * t11 + n21 * t12 + n31 * t13;
+
+			if ( det === 0 ) return this.set( 0, 0, 0, 0, 0, 0, 0, 0, 0 );
+
+			var detInv = 1 / det;
+
+			te[ 0 ] = t11 * detInv;
+			te[ 1 ] = ( n31 * n23 - n33 * n21 ) * detInv;
+			te[ 2 ] = ( n32 * n21 - n31 * n22 ) * detInv;
+
+			te[ 3 ] = t12 * detInv;
+			te[ 4 ] = ( n33 * n11 - n31 * n13 ) * detInv;
+			te[ 5 ] = ( n31 * n12 - n32 * n11 ) * detInv;
+
+			te[ 6 ] = t13 * detInv;
+			te[ 7 ] = ( n21 * n13 - n23 * n11 ) * detInv;
+			te[ 8 ] = ( n22 * n11 - n21 * n12 ) * detInv;
+
+			return this;
+
+		},
+
+		transpose: function () {
+
+			var tmp, m = this.elements;
+
+			tmp = m[ 1 ]; m[ 1 ] = m[ 3 ]; m[ 3 ] = tmp;
+			tmp = m[ 2 ]; m[ 2 ] = m[ 6 ]; m[ 6 ] = tmp;
+			tmp = m[ 5 ]; m[ 5 ] = m[ 7 ]; m[ 7 ] = tmp;
+
+			return this;
+
+		},
+
+		getNormalMatrix: function ( matrix4 ) {
+
+			return this.setFromMatrix4( matrix4 ).getInverse( this ).transpose();
+
+		},
+
+		transposeIntoArray: function ( r ) {
+
+			var m = this.elements;
+
+			r[ 0 ] = m[ 0 ];
+			r[ 1 ] = m[ 3 ];
+			r[ 2 ] = m[ 6 ];
+			r[ 3 ] = m[ 1 ];
+			r[ 4 ] = m[ 4 ];
+			r[ 5 ] = m[ 7 ];
+			r[ 6 ] = m[ 2 ];
+			r[ 7 ] = m[ 5 ];
+			r[ 8 ] = m[ 8 ];
+
+			return this;
+
+		},
+
+		setUvTransform: function ( tx, ty, sx, sy, rotation, cx, cy ) {
+
+			var c = Math.cos( rotation );
+			var s = Math.sin( rotation );
+
+			this.set(
+				sx * c, sx * s, - sx * ( c * cx + s * cy ) + cx + tx,
+				- sy * s, sy * c, - sy * ( - s * cx + c * cy ) + cy + ty,
+				0, 0, 1
+			);
+
+		},
+
+		scale: function ( sx, sy ) {
+
+			var te = this.elements;
+
+			te[ 0 ] *= sx; te[ 3 ] *= sx; te[ 6 ] *= sx;
+			te[ 1 ] *= sy; te[ 4 ] *= sy; te[ 7 ] *= sy;
+
+			return this;
+
+		},
+
+		rotate: function ( theta ) {
+
+			var c = Math.cos( theta );
+			var s = Math.sin( theta );
+
+			var te = this.elements;
+
+			var a11 = te[ 0 ], a12 = te[ 3 ], a13 = te[ 6 ];
+			var a21 = te[ 1 ], a22 = te[ 4 ], a23 = te[ 7 ];
+
+			te[ 0 ] = c * a11 + s * a21;
+			te[ 3 ] = c * a12 + s * a22;
+			te[ 6 ] = c * a13 + s * a23;
+
+			te[ 1 ] = - s * a11 + c * a21;
+			te[ 4 ] = - s * a12 + c * a22;
+			te[ 7 ] = - s * a13 + c * a23;
+
+			return this;
+
+		},
+
+		translate: function ( tx, ty ) {
+
+			var te = this.elements;
+
+			te[ 0 ] += tx * te[ 2 ]; te[ 3 ] += tx * te[ 5 ]; te[ 6 ] += tx * te[ 8 ];
+			te[ 1 ] += ty * te[ 2 ]; te[ 4 ] += ty * te[ 5 ]; te[ 7 ] += ty * te[ 8 ];
+
+			return this;
+
+		},
+
+		equals: function ( matrix ) {
+
+			var te = this.elements;
+			var me = matrix.elements;
+
+			for ( var i = 0; i < 9; i ++ ) {
+
+				if ( te[ i ] !== me[ i ] ) return false;
+
+			}
+
+			return true;
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			for ( var i = 0; i < 9; i ++ ) {
+
+				this.elements[ i ] = array[ i + offset ];
+
+			}
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			var te = this.elements;
+
+			array[ offset ] = te[ 0 ];
+			array[ offset + 1 ] = te[ 1 ];
+			array[ offset + 2 ] = te[ 2 ];
+
+			array[ offset + 3 ] = te[ 3 ];
+			array[ offset + 4 ] = te[ 4 ];
+			array[ offset + 5 ] = te[ 5 ];
+
+			array[ offset + 6 ] = te[ 6 ];
+			array[ offset + 7 ] = te[ 7 ];
+			array[ offset + 8 ] = te[ 8 ];
+
+			return array;
+
+		},
+
+
+		"_construct" : function () {
+
+			this.elements = [
+
+				1, 0, 0,
+				0, 1, 0,
+				0, 0, 1
+
+			];
+
+			if ( arguments.length > 0 ) {
+
+				console.error( 'Matrix3: the constructor no longer reads arguments. use .set() instead.' );
+
+			}
+
+		}
+
+	});
+
+
+	return numerics.Matrix3 = Matrix3;
+});
+define('skylark-langx-numerics/Transform',[
+	"skylark-langx-klass",	
+    "./numerics",
+], function(klass,numerics) {
+
+    var Transform =  klass({
+        "klassName": "Transform",
+		"value": {
+			get : function(){
+				return this._.value;
+			}
+		}
+	});
+
+	return numerics.Transform =Transform;
+});
+
+define('skylark-langx-numerics/MatrixTransform',[
+    "./numerics",
+	"./Transform"
+],function(numerics,Transform) {
+
+    var MatrixTransform =  Transform.inherit({
+        "klassName": "MatrixTransform",
+
+		"value"	:	{
+			get : function(){
+				return this.matrix.clone();
+			}
+		},
+		
+		"matrix" : {
+			get : function(){
+				return this._.matrix;
+			}
+		},
+
+		clone : /*ScaleTransform*/function() {
+		},
+		
+		transform : /*Point*/function(/*Point*/point) {
+		},
+		
+		//�w�肳�ꂽ���E�{�b�N�X��ϊ����A��������傤�Ǌi�[�ł���傫���̎����s���E�{�b�N�X��Ԃ��܂��B
+		transformBounds : /*Rect*/function(/*Rect*/rect) {
+		},		
+		"_construct" : function(/*Martix*/matrix) {
+            var _ = this._ = {};
+			
+			_.matrix = matrix;
+		}
+				
+	});
+
+	return numerics.MatrixTransform = MatrixTransform;
+	
+});	
+
+define('skylark-langx-numerics/Plane',[
+	"skylark-langx-klass",
+	"./numerics",
+	"./Matrix3",
+	"./Vector3"
+] ,function(
+	klass,
+	numerics,
+	Matrix3,
+	Vector3
+) {
+
+
+	var _vector1 = new Vector3();
+	var _vector2 = new Vector3();
+	var _normalMatrix = new Matrix3();
+
+	var Plane = klass({
+		"klassName" : "Plane",
+
+		set: function ( normal, constant ) {
+
+			this.normal.copy( normal );
+			this.constant = constant;
+
+			return this;
+
+		},
+
+		setComponents: function ( x, y, z, w ) {
+
+			this.normal.set( x, y, z );
+			this.constant = w;
+
+			return this;
+
+		},
+
+		setFromNormalAndCoplanarPoint: function ( normal, point ) {
+
+			this.normal.copy( normal );
+			this.constant = - point.dot( this.normal );
+
+			return this;
+
+		},
+
+		setFromCoplanarPoints: function ( a, b, c ) {
+
+			var normal = _vector1.subVectors( c, b ).cross( _vector2.subVectors( a, b ) ).normalize();
+
+			// Q: should an error be thrown if normal is zero (e.g. degenerate plane)?
+
+			this.setFromNormalAndCoplanarPoint( normal, a );
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new this.constructor().copy( this );
+
+		},
+
+		copy: function ( plane ) {
+
+			this.normal.copy( plane.normal );
+			this.constant = plane.constant;
+
+			return this;
+
+		},
+
+		normalize: function () {
+
+			// Note: will lead to a divide by zero if the plane is invalid.
+
+			var inverseNormalLength = 1.0 / this.normal.length();
+			this.normal.multiplyScalar( inverseNormalLength );
+			this.constant *= inverseNormalLength;
+
+			return this;
+
+		},
+
+		negate: function () {
+
+			this.constant *= - 1;
+			this.normal.negate();
+
+			return this;
+
+		},
+
+		distanceToPoint: function ( point ) {
+
+			return this.normal.dot( point ) + this.constant;
+
+		},
+
+		distanceToSphere: function ( sphere ) {
+
+			return this.distanceToPoint( sphere.center ) - sphere.radius;
+
+		},
+
+		projectPoint: function ( point, target ) {
+
+			if ( target === undefined ) {
+
+				console.warn( 'mathsPlane: .projectPoint() target is now required' );
+				target = new Vector3();
+
+			}
+
+			return target.copy( this.normal ).multiplyScalar( - this.distanceToPoint( point ) ).add( point );
+
+		},
+
+		intersectLine: function ( line, target ) {
+
+			if ( target === undefined ) {
+
+				console.warn( 'mathsPlane: .intersectLine() target is now required' );
+				target = new Vector3();
+
+			}
+
+			var direction = line.delta( _vector1 );
+
+			var denominator = this.normal.dot( direction );
+
+			if ( denominator === 0 ) {
+
+				// line is coplanar, return origin
+				if ( this.distanceToPoint( line.start ) === 0 ) {
+
+					return target.copy( line.start );
+
+				}
+
+				// Unsure if this is the correct method to handle this case.
+				return undefined;
+
+			}
+
+			var t = - ( line.start.dot( this.normal ) + this.constant ) / denominator;
+
+			if ( t < 0 || t > 1 ) {
+
+				return undefined;
+
+			}
+
+			return target.copy( direction ).multiplyScalar( t ).add( line.start );
+
+		},
+
+		intersectsLine: function ( line ) {
+
+			// Note: this tests if a line intersects the plane, not whether it (or its end-points) are coplanar with it.
+
+			var startSign = this.distanceToPoint( line.start );
+			var endSign = this.distanceToPoint( line.end );
+
+			return ( startSign < 0 && endSign > 0 ) || ( endSign < 0 && startSign > 0 );
+
+		},
+
+		intersectsBox: function ( box ) {
+
+			return box.intersectsPlane( this );
+
+		},
+
+		intersectsSphere: function ( sphere ) {
+
+			return sphere.intersectsPlane( this );
+
+		},
+
+		coplanarPoint: function ( target ) {
+
+			if ( target === undefined ) {
+
+				console.warn( 'mathsPlane: .coplanarPoint() target is now required' );
+				target = new Vector3();
+
+			}
+
+			return target.copy( this.normal ).multiplyScalar( - this.constant );
+
+		},
+
+		applyMatrix4: function ( matrix, optionalNormalMatrix ) {
+
+			var normalMatrix = optionalNormalMatrix || _normalMatrix.getNormalMatrix( matrix );
+
+			var referencePoint = this.coplanarPoint( _vector1 ).applyMatrix4( matrix );
+
+			var normal = this.normal.applyMatrix3( normalMatrix ).normalize();
+
+			this.constant = - referencePoint.dot( normal );
+
+			return this;
+
+		},
+
+		translate: function ( offset ) {
+
+			this.constant -= offset.dot( this.normal );
+
+			return this;
+
+		},
+
+		equals: function ( plane ) {
+
+			return plane.normal.equals( this.normal ) && ( plane.constant === this.constant );
+
+		},
+
+
+		"_construct" : function( normal, constant ) {
+
+			// normal is assumed to be normalized
+
+			this.normal = ( normal !== undefined ) ? normal : new Vector3( 1, 0, 0 );
+			this.constant = ( constant !== undefined ) ? constant : 0;
+
+		}
+
+	});
+
+
+	return numerics.Plane = Plane;
+});
+define('skylark-langx-numerics/RotateTransform',[
+    "./numerics",
+	"./Transform",
+	"./MatrixTransform"
+],function(numerics,Transform,Matrix) {
+
+
+    var RotateTransform = numerics.RotateTransform = Transform.inherit({
+        "klassName": "RotateTransform",
+
+        "value": {
+            get: function() {
+                return Matrix.rotateAt(this.angle, this.centerX, this.centerY);
+            }
+        },
+
+        "angle": {
+            get : function() {
+                return this._.angle;
+            }
+        },
+        // cy: Number
+        //		The Y coordinate of the center of the circle, default value 0.
+        "centerX": {
+            get : function() {
+                return this._.centerX;
+            }
+        },
+        // r: Number
+        //		The radius, default value 100.
+        "centerY": {
+            get : function() {
+                return this._.centerY;
+            }
+        },
+
+		clone : /*ScaleTransform*/function() {
+		},
+		
+		transform : /*Point*/function(/*Point*/point) {
+		},
+		
+		transformBounds : /*Rect*/function(/*Rect*/rect) {
+		},
+		
+		"init" : function(/*Number*/angle,/*Number*/centerX,/*Number*/centerY) {
+			var _ = this._ = {};
+			_.angle = angle ? angle :0;
+			_.centerX = centerX ? centerX :0;
+			_.centerY = centerY ? centerY :0;
+		}
+	});
+
+	return RotateTransform;
+	
+});	
+
+define('skylark-langx-numerics/ScaleTransform',[
+    "./numerics",
+    "./Transform",
+    "./MatrixTransform"
+], function(numerics, Transform, Matrix) {
+
+   var ScaleTransform =  Transform.inherit({
+        "klassName": "ScaleTransform",
+
+        "value": {
+            get: function() {
+                    return Matrix.scaleAt(this.scaleX, this.scaleY, this.centerX, this.centerY);
+            }
+        },
+
+        "scaleX": {
+            get : function() {
+                return this._.scaleX;
+            }
+        },
+
+        "scaleY": {
+            get : function() {
+                return this._.scaleY;
+            }
+        },
+
+        // cy: Number
+        //      The Y coordinate of the center of the circle, default value 0.
+        "centerX": {
+            get : function() {
+                return this._.centerX;
+            }
+        },
+        // r: Number
+        //      The radius, default value 100.
+        "centerY": {
+            get : function() {
+                return this._.centerY;
+            }
+        },
+
+        clone: /*ScaleTransform*/ function() {},
+
+        transform: /*Point*/ function( /*Point*/ point) {},
+
+        transformBounds: /*Rect*/ function( /*Rect*/ rect) {},
+
+        "_construct": function( /*Number*/ scaleX, /*Number*/ scaleY, /*Number*/ centerX, /*Number*/ centerY) {
+            var _ = this._ = {};
+
+            _.scaleX = scaleX ? scaleX : 1;
+            _.scaleY = scaleY ? scaleY : 1;
+            _.centerX = centerX ? centerX : 0;
+            _.centerY = centerY ? centerY : 0;
+        }
+    });
+
+    return numerics.ScaleTransform = ScaleTransform;
+
+});
+
+define('skylark-langx-numerics/SkewTransform',[
+    "./numerics",
+    "./Transform",
+    "./MatrixTransform"
+], function(numerics, Transform, Matrix) {
+
+   var SkewTransform = Transform.inherit({
+        "klassName": "SkewTransform",
+
+        "value": {
+            get: function() {
+                    return Matrix.scaleAt(this.skewX, this.skewY);
+            }
+        },
+
+        "skewX": {
+            get : function() {
+                return this._.skewX;
+            }
+        },
+
+        "skewY": {
+            get : function() {
+                return this._.skewY;
+            }
+        },
+
+        clone: /*SkewTransform*/ function() {},
+
+        transform: /*Point*/ function( /*Point*/ point) {},
+
+        transformBounds: /*Rect*/ function( /*Rect*/ rect) {},
+
+        "_construct": function( /*Number*/ skewX, /*Number*/ skewY) {
+            var _ = this._ = {};
+
+            _.skewX = skewX ? skewX : 0;
+            _.skewY = skewY ? skewY : 0;
+        }
+    });
+
+    return numerics.SkewTransform = SkewTransform;
+
+});
+
+define('skylark-langx-numerics/Vector2',[
+	"skylark-langx-klass",
+	"./numerics"
+] ,function(klass,numerics) {
+
+	var Vector2 = klass({
+		"klassName" : "Vector2",
+
+		set: function ( x, y ) {
+
+			this.x = x;
+			this.y = y;
+
+			return this;
+
+		},
+
+		setScalar: function ( scalar ) {
+
+			this.x = scalar;
+			this.y = scalar;
+
+			return this;
+		},
+
+		setX: function ( x ) {
+
+			this.x = x;
+
+			return this;
+
+		},
+
+		setY: function ( y ) {
+
+			this.y = y;
+
+			return this;
+
+		},
+
+
+		clone: function () {
+
+			return new this.constructor( this.x, this.y );
+
+		},
+
+		copy: function ( v ) {
+
+			this.x = v.x;
+			this.y = v.y;
+
+			return this;
+
+		},
+
+		add: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'Vector2: .add() now only accepts one argument. Use .addVectors( a, b ) instead.' );
+				return this.addVectors( v, w );
+
+			}
+
+			this.x += v.x;
+			this.y += v.y;
+
+			return this;
+
+		},
+
+		addScalar: function ( s ) {
+
+			this.x += s;
+			this.y += s;
+
+			return this;
+
+		},
+
+		addVectors: function ( a, b ) {
+
+			this.x = a.x + b.x;
+			this.y = a.y + b.y;
+
+			return this;
+
+		},
+
+		addScaledVector: function ( v, s ) {
+
+			this.x += v.x * s;
+			this.y += v.y * s;
+
+			return this;
+
+		},
+
+		sub: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'Vector2: .sub() now only accepts one argument. Use .subVectors( a, b ) instead.' );
+				return this.subVectors( v, w );
+
+			}
+
+			this.x -= v.x;
+			this.y -= v.y;
+
+			return this;
+
+		},
+
+		subScalar: function ( s ) {
+
+			this.x -= s;
+			this.y -= s;
+
+			return this;
+
+		},
+
+		subVectors: function ( a, b ) {
+
+			this.x = a.x - b.x;
+			this.y = a.y - b.y;
+
+			return this;
+
+		},
+
+		multiply: function ( v ) {
+
+			this.x *= v.x;
+			this.y *= v.y;
+
+			return this;
+
+		},
+
+		multiplyScalar: function ( scalar ) {
+
+			this.x *= scalar;
+			this.y *= scalar;
+
+			return this;
+
+		},
+
+		divide: function ( v ) {
+
+			this.x /= v.x;
+			this.y /= v.y;
+
+			return this;
+
+		},
+
+		divideScalar: function ( scalar ) {
+
+			return this.multiplyScalar( 1 / scalar );
+
+		},
+
+		applyMatrix3: function ( m ) {
+
+			var x = this.x, y = this.y;
+			var e = m.elements;
+
+			this.x = e[ 0 ] * x + e[ 3 ] * y + e[ 6 ];
+			this.y = e[ 1 ] * x + e[ 4 ] * y + e[ 7 ];
+
+			return this;
+
+		},
+
+		min: function ( v ) {
+
+			this.x = Math.min( this.x, v.x );
+			this.y = Math.min( this.y, v.y );
+
+			return this;
+
+		},
+
+		max: function ( v ) {
+
+			this.x = Math.max( this.x, v.x );
+			this.y = Math.max( this.y, v.y );
+
+			return this;
+
+		},
+
+		clamp: function ( min, max ) {
+
+			// assumes min < max, componentwise
+
+			this.x = Math.max( min.x, Math.min( max.x, this.x ) );
+			this.y = Math.max( min.y, Math.min( max.y, this.y ) );
+
+			return this;
+
+		},
+
+		clampScalar: function ( minVal, maxVal ) {
+
+			this.x = Math.max( minVal, Math.min( maxVal, this.x ) );
+			this.y = Math.max( minVal, Math.min( maxVal, this.y ) );
+
+			return this;
+
+		},
+
+		clampLength: function ( min, max ) {
+
+			var length = this.length();
+
+			return this.divideScalar( length || 1 ).multiplyScalar( Math.max( min, Math.min( max, length ) ) );
+
+		},
+
+		floor: function () {
+
+			this.x = Math.floor( this.x );
+			this.y = Math.floor( this.y );
+
+			return this;
+
+		},
+
+		ceil: function () {
+
+			this.x = Math.ceil( this.x );
+			this.y = Math.ceil( this.y );
+
+			return this;
+
+		},
+
+		round: function () {
+
+			this.x = Math.round( this.x );
+			this.y = Math.round( this.y );
+
+			return this;
+
+		},
+
+		roundToZero: function () {
+
+			this.x = ( this.x < 0 ) ? Math.ceil( this.x ) : Math.floor( this.x );
+			this.y = ( this.y < 0 ) ? Math.ceil( this.y ) : Math.floor( this.y );
+
+			return this;
+
+		},
+
+		negate: function () {
+
+			this.x = - this.x;
+			this.y = - this.y;
+
+			return this;
+
+		},
+
+		dot: function ( v ) {
+
+			return this.x * v.x + this.y * v.y;
+
+		},
+
+		cross: function ( v ) {
+
+			return this.x * v.y - this.y * v.x;
+
+		},
+
+		lengthSq: function () {
+
+			return this.x * this.x + this.y * this.y;
+
+		},
+
+		length: function () {
+
+			return Math.sqrt( this.x * this.x + this.y * this.y );
+
+		},
+
+		manhattanLength: function () {
+
+			return Math.abs( this.x ) + Math.abs( this.y );
+
+		},
+
+		normalize: function () {
+
+			return this.divideScalar( this.length() || 1 );
+
+		},
+
+		angle: function () {
+
+			// computes the angle in radians with respect to the positive x-axis
+
+			var angle = Math.atan2( - this.y, - this.x ) + Math.PI;
+
+			return angle;
+
+		},
+
+		distanceTo: function ( v ) {
+
+			return Math.sqrt( this.distanceToSquared( v ) );
+
+		},
+
+		distanceToSquared: function ( v ) {
+
+			var dx = this.x - v.x, dy = this.y - v.y;
+			return dx * dx + dy * dy;
+
+		},
+
+		manhattanDistanceTo: function ( v ) {
+
+			return Math.abs( this.x - v.x ) + Math.abs( this.y - v.y );
+
+		},
+
+		setLength: function ( length ) {
+
+			return this.normalize().multiplyScalar( length );
+
+		},
+
+		lerp: function ( v, alpha ) {
+
+			this.x += ( v.x - this.x ) * alpha;
+			this.y += ( v.y - this.y ) * alpha;
+
+			return this;
+
+		},
+
+		lerpVectors: function ( v1, v2, alpha ) {
+
+			return this.subVectors( v2, v1 ).multiplyScalar( alpha ).add( v1 );
+
+		},
+
+		equals: function ( v ) {
+
+			return ( ( v.x === this.x ) && ( v.y === this.y ) );
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			this.x = array[ offset ];
+			this.y = array[ offset + 1 ];
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			array[ offset ] = this.x;
+			array[ offset + 1 ] = this.y;
+
+			return array;
+
+		},
+
+
+		rotateAround: function ( center, angle ) {
+
+			var c = Math.cos( angle ), s = Math.sin( angle );
+
+			var x = this.x - center.x;
+			var y = this.y - center.y;
+
+			this.x = x * c - y * s + center.x;
+			this.y = x * s + y * c + center.y;
+
+			return this;
+		},
+
+		"_construct" : function ( x, y ) {
+
+			this.x = x || 0;
+			this.y = y || 0;
+
+		}
+
+
+	});
+
+
+	/*
+	Object.defineProperties( Vector2.prototype, {
+
+		"width": {
+
+			get: function () {
+
+				return this.x;
+
+			},
+
+			set: function ( value ) {
+
+				this.x = value;
+
+			}
+
+		},
+
+		"height": {
+
+			get: function () {
+
+				return this.y;
+
+			},
+
+			set: function ( value ) {
+
+				this.y = value;
+
+			}
+
+		}
+
+	} );
+	*/
+
+
+
+
+	return numerics.Vector2 = Vector2 ;
+});
+
+define( 'skylark-langx-numerics/TransformMatrix',[
+    "skylark-langx-klass",
+    "./numerics",
+    "./Vector2"
+], function(klass,numerics,Vector2){
+	// reference easeljs/numerics/Matrix2D  and dojox/gfx/matrix
+	
+	var DEG_TO_RAD = Math.PI/180;
+	var _degToRadCache = {};
+	var degToRad = function(degree){
+		return _degToRadCache[degree] || (_degToRadCache[degree] = (Math.PI * degree / 180));
+	};
+	var radToDeg = function(radian){ return radian / Math.PI * 180; };
+	
+
+	//Represents a 3 x 3 affine transformation matrix used for transformation in 2-D space.
+	//|----------|
+	//|m11|m21|dx| 
+	//|----------|
+	//|m12|m22|dy|
+	//|----------|
+	//|  0|  0| 1|
+	//|----------|
+	
+    var TransformMatrix =  klass({
+        "klassName": "TransformMatrix",
+
+		"_multiplyPoint"	: 	function(p){
+			// summary:
+			//		applies the matrix to a point
+			// p: Point
+			//		a point
+			// returns: Point
+			var _ = this._,
+				x = p.x * _.m11 + p.y * _.m21  + _.dx,
+			    y = p.x * _.m12 +  p.y * _.m22 + _.dy;
+
+			return new Vector2(x,y); // Point
+		},
+
+       "m11": {
+       		//Position (0, 0) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.m11;
+            }
+        },
+
+       "m12": {
+       		//Position (0, 1) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.m12;
+            }
+        },
+
+       "m21": {
+       		//Position (1, 0) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.m21;
+            }
+        },
+
+       "m22": {
+       		//Position (1, 1) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.m22;
+            }
+        },
+
+       "dx": {
+       		// Position (2, 1) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.dx;
+            }
+        },
+
+       "dy": {
+       		// Position (2, 1) in a 3x3 affine transformation matrix.
+            get : function() {
+                return this._.dy;
+            }
+        },
+
+       "alpha": {
+       		// Property representing the alpha that will be applied to a display object. This is not part of matrix
+       		// operations, but is used for operations like getConcatenatedMatrix to provide concatenated alpha values.
+            get : function() {
+                return this._.alpha;
+            }
+        },
+
+       "shadow": {
+       		// Property representing the shadow that will be applied to a display object. This is not part of matrix
+       		// operations, but is used for operations like getConcatenatedMatrix to provide concatenated shadow values..
+            get : function() {
+                return this._.shadow;
+            }
+        },
+
+       "compositeOperation": {
+			/**
+			 * Property representing the compositeOperation that will be applied to a display object. This is not part of
+			 * matrix operations, but is used for operations like getConcatenatedMatrix to provide concatenated
+			 * compositeOperation values. You can find a list of valid composite operations at:
+			 * <a href="https://developer.mozilla.org/en/Canvas_tutorial/Compositing">https://developer.mozilla.org/en/Canvas_tutorial/Compositing</a>
+			 * @property compositeOperation
+			 * @type String
+			 **/
+            get : function() {
+                return this._.compositeOperation;
+            }
+        },
+
+        //Converts the specified point with TransformMatrix and returns the result.
+		multiplyPoint: /*Vector2*/function(/*Vector2 */ p){
+			// summary:
+			//		applies the matrix to a point
+			return this._multiplyPoint(p); // Vector2
+		},
+				/**
+				 * 指定した矩形を TransformMatrix で変換し、その結果を返します。
+				 */
+		multiplyRectangle: /*Rect*/function(/*Rect*/ rect){
+			// summary:
+			//		Applies the matrix to a rectangle.
+			// returns: Rect
+			if(this.isIdentity())
+				return rect.clone(); // Rect
+			var p0 = this.multiplyPoint(rect.leftTop),
+				p1 = this.multiplyPoint(rect.leftBottom),
+				p2 = this.multiplyPoint(rect.right),
+				p3 = this.multiplyPoint(rect.rightBottom),
+				minx = Math.min(p0.x, p1.x, p2.x, p3.x),
+				miny = Math.min(p0.y, p1.y, p2.y, p3.y),
+				maxx = Math.max(p0.x, p1.x, p2.x, p3.x),
+				maxy = Math.max(p0.y, p1.y, p2.y, p3.y);
+			return new Rect(minx,miny,maxx-minx,maxy-miny);  // Rect
+		},
+		/**
+		 * Concatenates the specified matrix properties with this matrix. All parameters are required.
+		 * @method prepend
+		 * @param {Number} m11
+		 * @param {Number} m12
+		 * @param {Number} m21
+		 * @param {Number} m22
+		 * @param {Number} dx
+		 * @param {Number} dy
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		prepend : function(m11, m12, m21, m22, dx, dy) {
+			var tx1 = this.dx;
+			if (m11 != 1 || m12 != 0 || m21 != 0 || m22 != 1) {
+				var a1 = this.m11;
+				var c1 = this.m21;
+				this.m11  = a1*m11+this.m12*m21;
+				this.m12  = a1*m12+this.m12*m22;
+				this.m21  = c1*m11+this.m22*m21;
+				this.m22  = c1*m12+this.m22*m22;
+			}
+			this.dx = tx1*m11+this.dy*m21+dx;
+			this.dy = tx1*m12+this.dy*m22+dy;
+			return this;
+		},
+
+		/**
+		 * Appends the specified matrix properties with this matrix. All parameters are required.
+		 * 指定した Matrixをこの Matrixに追加します。
+		 * @method append
+		 * @param {Number} m11
+		 * @param {Number} m12
+		 * @param {Number} m21
+		 * @param {Number} m22
+		 * @param {Number} dx
+		 * @param {Number} dy
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		append : function(m11, m12, m21, m22, dx, dy) {
+			var a1 = this.m11;
+			var b1 = this.m12;
+			var c1 = this.m21;
+			var d1 = this.m22;
+
+			this.m11  = m11*a1+m12*c1;
+			this.m12  = m11*b1+m12*d1;
+			this.m21  = m21*a1+m22*c1;
+			this.m22  = m21*b1+m22*d1;
+			this.dx = dx*a1+dy*c1+this.dx;
+			this.dy = dx*b1+dy*d1+this.dy;
+			return this;
+		},
+
+		/**
+		 * Prepends the specified matrix with this matrix.
+		 * @method prependMatrix
+		 * @param {TransformMatrix} matrix
+		 **/
+		prependMatrix : function(matrix) {
+			this.prepend(matrix.m11, matrix.m12, matrix.m21, matrix.m22, matrix.dx, matrix.dy);
+			this.prependProperties(matrix.alpha, matrix.shadow,  matrix.compositeOperation);
+			return this;
+		},
+
+		/**
+		 * Appends the specified matrix with this matrix.
+		 * 指定した Matrixをこの Matrixに追加します。
+		 * @method appendMatrix
+		 * @param {TransformMatrix} matrix
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		appendMatrix : function(matrix) {
+			this.append(matrix.m11, matrix.m12, matrix.m21, matrix.m22, matrix.dx, matrix.dy);
+			this.appendProperties(matrix.alpha, matrix.shadow,  matrix.compositeOperation);
+			return this;
+		},
+
+		/**
+		 * Generates matrix properties from the specified display object transform properties, and prepends them with this matrix.
+		 * For example, you can use this to generate a matrix from a display object: var mtx = new TransformMatrix();
+		 * mtx.prependTransform(o.x, o.y, o.scaleX, o.scaleY, o.rotation);
+		 * @method prependTransform
+		 * @param {Number} x
+		 * @param {Number} y
+		 * @param {Number} scaleX
+		 * @param {Number} scaleY
+		 * @param {Number} rotation
+		 * @param {Number} skewX
+		 * @param {Number} skewY
+		 * @param {Number} regX Optional.
+		 * @param {Number} regY Optional.
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		prependTransform : function(x, y, scaleX, scaleY, rotation, skewX, skewY, regX, regY) {
+			if (rotation%360) {
+				var r = rotation*DEG_TO_RAD;
+				var cos = Math.cos(r);
+				var sin = Math.sin(r);
+			} else {
+				cos = 1;
+				sin = 0;
+			}
+
+			if (regX || regY) {
+				// append the registration offset:
+				this.dx -= regX; this.dy -= regY;
+			}
+			if (skewX || skewY) {
+				// TODO: can this be combined into a single prepend operation?
+				skewX *= DEG_TO_RAD;
+				skewY *= DEG_TO_RAD;
+				this.prepend(cos*scaleX, sin*scaleX, -sin*scaleY, cos*scaleY, 0, 0);
+				this.prepend(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), x, y);
+			} else {
+				this.prepend(cos*scaleX, sin*scaleX, -sin*scaleY, cos*scaleY, x, y);
+			}
+			return this;
+		},
+
+		/**
+		 * Generates matrix properties from the specified display object transform properties, and appends them with this matrix.
+		 * For example, you can use this to generate a matrix from a display object: var mtx = new TransformMatrix();
+		 * mtx.appendTransform(o.x, o.y, o.scaleX, o.scaleY, o.rotation);
+		 * @method appendTransform
+		 * @param {Number} x
+		 * @param {Number} y
+		 * @param {Number} scaleX
+		 * @param {Number} scaleY
+		 * @param {Number} rotation
+		 * @param {Number} skewX
+		 * @param {Number} skewY
+		 * @param {Number} regX Optional.
+		 * @param {Number} regY Optional.
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		appendTransform : function(x, y, scaleX, scaleY, rotation, skewX, skewY, regX, regY) {
+			if (rotation%360) {
+				var r = rotation*DEG_TO_RAD;
+				var cos = Math.cos(r);
+				var sin = Math.sin(r);
+			} else {
+				cos = 1;
+				sin = 0;
+			}
+
+			if (skewX || skewY) {
+				// TODO: can this be combined into a single append?
+				skewX *= DEG_TO_RAD;
+				skewY *= DEG_TO_RAD;
+				this.append(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), x, y);
+				this.append(cos*scaleX, sin*scaleX, -sin*scaleY, cos*scaleY, 0, 0);
+			} else {
+				this.append(cos*scaleX, sin*scaleX, -sin*scaleY, cos*scaleY, x, y);
+			}
+
+			if (regX || regY) {
+				// prepend the registration offset:
+				this.dx -= regX*this.m11+regY*this.m21; 
+				this.dy -= regX*this.m12+regY*this.m22;
+			}
+			return this;
+		},
+
+		/**
+		 * Applies a rotation transformation to the matrix.
+		 * @method rotate
+		 * @param {Number} angle The angle in degrees.
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		rotate : function(angle) {
+			var cos = Math.cos(angle);
+			var sin = Math.sin(angle);
+
+			var a1 = this.m11;
+			var c1 = this.m21;
+			var tx1 = this.dx;
+
+			this.m11 = a1*cos-this.m12*sin;
+			this.m12 = a1*sin+this.m12*cos;
+			this.m21 = c1*cos-this.m22*sin;
+			this.m22 = c1*sin+this.m22*cos;
+			this.dx = tx1*cos-this.dy*sin;
+			this.dy = tx1*sin+this.dy*cos;
+			return this;
+		},
+
+		/**
+		 * Applies a skew transformation to the matrix.
+		 * @method skew
+		 * @param {Number} skewX The amount to skew horizontally in degrees.
+		 * @param {Number} skewY The amount to skew vertically in degrees.
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		*/
+		skew : function(skewX, skewY) {
+			skewX = skewX*DEG_TO_RAD;
+			skewY = skewY*DEG_TO_RAD;
+			this.append(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), 0, 0);
+			return this;
+		},
+
+		/**
+		 * Applies a scale transformation to the matrix.
+		 * @method scale
+		 * @param {Number} x
+		 * @param {Number} y
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		scale : function(x, y) {
+			this.m11 *= x;
+			this.m22 *= y;
+			this.dx *= x;
+			this.dy *= y;
+			return this;
+		},
+
+		/**
+		 * Translates the matrix on the x and y axes.
+		 * @method translate
+		 * @param {Number} x
+		 * @param {Number} y
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		translate : function(x, y) {
+			this.dx += x;
+			this.dy += y;
+			return this;
+		},
+
+		/**
+		 * Sets the properties of the matrix to those of an identity matrix (one that applies a null transformation).
+		 * @method identity
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		identity : function() {
+			this.alpha = this.m11 = this.m22 = 1;
+			this.m12 = this.m21 = this.dx = this.dy = 0;
+			this.shadow = this.compositeOperation = null;
+			return this;
+		},
+
+		/**
+		 * Inverts the matrix, causing it to perform the opposite transformation.
+		 * @method invert
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		 **/
+		invert : function() {
+			var a1 = this.m11;
+			var b1 = this.m12;
+			var c1 = this.m21;
+			var d1 = this.m22;
+			var tx1 = this.dx;
+			var n = a1*d1-b1*c1;
+
+			this.m11 = d1/n;
+			this.m12 = -b1/n;
+			this.m21 = -c1/n;
+			this.m22 = a1/n;
+			this.dx = (c1*this.dy-d1*tx1)/n;
+			this.dy = -(a1*this.dy-b1*tx1)/n;
+			return this;
+		},
+
+		/**
+		 * Returns true if the matrix is an identity matrix.
+		 * @method isIdentity
+		 * @return {Boolean}
+		 **/
+		isIdentity : function() {
+			return this.dx == 0 && this.dy == 0 && this.m11 == 1 && this.m12 == 0 && this.m21 == 0 && this.m22 == 1;
+		},
+
+		/**
+		 * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that this these values
+		 * may not match the transform properties you used to generate the matrix, though they will produce the same visual
+		 * results.
+		 * @method decompose
+		 * @param {Object} target The object to apply the transform properties to. If null, then a new object will be returned.
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		*/
+		decompose : function(target) {
+			// TODO: it would be nice to be able to solve for whether the matrix can be decomposed into only scale/rotation
+			// even when scale is negative
+			if (target == null) { target = {}; }
+			target.x = this.dx;
+			target.y = this.dy;
+			target.scaleX = Math.sqrt(this.m11 * this.m11 + this.m12 * this.m12);
+			target.scaleY = Math.sqrt(this.m21 * this.m21 + this.m22 * this.m22);
+
+			var skewX = Math.atan2(-this.m21, this.m22);
+			var skewY = Math.atan2(this.m12, this.m11);
+
+			if (skewX == skewY) {
+				target.rotation = skewY/DEG_TO_RAD;
+				if (this.m11 < 0 && this.m22 >= 0) {
+					target.rotation += (target.rotation <= 0) ? 180 : -180;
+				}
+				target.skewX = target.skewY = 0;
+			} else {
+				target.skewX = skewX/DEG_TO_RAD;
+				target.skewY = skewY/DEG_TO_RAD;
+			}
+			return target;
+		},
+
+		/**
+		 * Reinitializes all matrix properties to those specified.
+		 * @method appendProperties
+		 * @param {Number} m11
+		 * @param {Number} m12
+		 * @param {Number} m21
+		 * @param {Number} m22
+		 * @param {Number} dx
+		 * @param {Number} dy
+		 * @param {Number} alpha desired alpha value
+		 * @param {Shadow} shadow desired shadow value
+		 * @param {String} compositeOperation desired composite operation value
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		*/
+		reinitialize : function(m11,m12,m21,m22,dx,dy,alpha,shadow,compositeOperation) {
+			this._initialize(m11,m12,m21,m22,dx,dy);
+			this.alpha = alpha || 1;
+			this.shadow = shadow;
+			this.compositeOperation = compositeOperation;
+			return this;
+		},
+
+		/**
+		 * Appends the specified visual properties to the current matrix.
+		 * @method appendProperties
+		 * @param {Number} alpha desired alpha value
+		 * @param {Shadow} shadow desired shadow value
+		 * @param {String} compositeOperation desired composite operation value
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		*/
+		appendProperties : function(alpha, shadow, compositeOperation) {
+			this.alpha *= alpha;
+			this.shadow = shadow || this.shadow;
+			this.compositeOperation = compositeOperation || this.compositeOperation;
+			return this;
+		},
+
+		/**
+		 * Prepends the specified visual properties to the current matrix.
+		 * @method prependProperties
+		 * @param {Number} alpha desired alpha value
+		 * @param {Shadow} shadow desired shadow value
+		 * @param {String} compositeOperation desired composite operation value
+		 * @return {TransformMatrix} This matrix. Useful for chaining method calls.
+		*/
+		prependProperties : function(alpha, shadow, compositeOperation) {
+			this.alpha *= alpha;
+			this.shadow = this.shadow || shadow;
+			this.compositeOperation = this.compositeOperation || compositeOperation;
+			return this;
+		},
+
+		/**
+		 *Multiply TransformMatrix by another TransformMatrix.
+		 */
+		multiply: function(matrix){
+			// summary:
+			//		combines matrices by multiplying them sequentially in the given order
+			// matrix: TransformMatrix
+			//		a 2D matrix-like object,
+			//		all subsequent arguments are matrix-like objects too
+
+			// combine matrices
+			var m11 = this.m11,m12 = this.m12,m21 = this.m21,m22=this.m22,dx=this.dx,dy=this.dy;
+			var r = matrix;
+			this.m11 = m11 * r.m11 + m21 * r.m12;
+			this.m12 = m12 * r.m11 + m22 * r.m12;
+			this.m21 = m11 * r.m21 + m21 * r.m22;
+			this.m22 = m12 * r.m21 + m22 * r.m22;
+			this.dx =  m11 * r.dx + m21 * r.dy + dx;
+			this.dy =  m12 * r.dx + m22 * r.dy + dy;
+			return this // TransformMatrix
+		},
+
+		/**
+		 * Returns a clone of the TransformMatrix instance.
+		 * @method clone
+		 * @return {TransformMatrix} a clone of the TransformMatrix instance.
+		 **/
+		clone : function() {
+
+			var _ = this._,
+				mtx = new TransformMatrix(_.m11, _.m12, _.m21, _.m22, _.dx, _.dy);
+			mtx.shadow = this.shadow;
+			mtx.alpha = this.alpha;
+			mtx.compositeOperation = this.compositeOperation;
+			return mtx;
+		},
+
+		/**
+		 * Returns a string representation of this object.
+		 * @method toString
+		 * @return {String} a string representation of the instance.
+		 **/
+		toString : function() {
+			var _ = this._;
+			return "[TransformMatrix (m11="+_.m11+" m12="+_.m12+" m21="+_.m21+" m22="+_.m22+" dx="+_.dx+" dy="+_.dy+")]";
+		},
+		
+		"_construct" : function(m11, m12, m21, m22, dx, dy) {
+			var _ = this._ = {};
+			_.m11 = m11 || 1;
+			_.m12 = m12 || 0;
+			_.m21 = m21 || 0;
+			_.m22 = m22 || 1;
+			_.dx = dx || 0;
+			_.dy = dy || 0;
+		}
+
+	});
+	
+	Object.assign(TransformMatrix,{
+		translate: function(a, b){
+			// summary:
+			//		forms a translation matrix
+			// description:
+			//		The resulting matrix is used to translate (move) points by specified offsets.
+			// a: Number
+			//		an x coordinate value
+			// b: Number
+			//		a y coordinate value
+			// returns: TransformMatrix
+			//|----------| |-----------|
+			//|m11|m21|dx| |  1|   0| a|
+			//|----------| |-----------|
+			//|m12|m22|dy| |  0|   1| b|
+			//|----------| |-----------|
+			//|  0|  0| 1| |  0|   0| 1|
+			//|----------| |-----------|
+
+			return new TransformMatrix(1,0,0,1,a,b); // TransformMatrix
+		},
+		scale: function(a, b){
+			// summary:
+			//		forms a scaling matrix
+			// description:
+			//		The resulting matrix is used to scale (magnify) points by specified offsets.
+			// a: Number
+			//		a scaling factor used for the x coordinate
+			// b: Number?
+			//		a scaling factor used for the y coordinate
+			// returns: TransformMatrix
+			//|----------| |-----------|
+			//|m11|m21|dx| |  a|   0| 0|
+			//|----------| |-----------|
+			//|m12|m22|dy| |  0|   b| 0|
+			//|----------| |-----------|
+			//|  0|  0| 1| |  0|   0| 1|
+			//|----------| |-----------|
+			return new TransformMatrix(a,0,0,b?b:a,0,0); // TransformMatrix
+		},
+		rotate: function(angle){
+			// summary:
+			//		forms a rotating matrix
+			// description:
+			//		The resulting matrix is used to rotate points
+			//		around the origin of coordinates (0, 0) by specified angle.
+			// angle: Number
+			//		an angle of rotation in radians (>0 for CW)
+			// returns: TransformMatrix
+			//|----------| |-----------|
+			//|m11|m21|dx| |cos|-sin| 0|
+			//|----------| |-----------|
+			//|m12|m22|dy| |sin| cos| 0|
+			//|----------| |-----------|
+			//|  0|  0| 1| |  0|   0| 1|
+			//|----------| |-----------|
+			var cos = Math.cos(angle);
+			var sin = Math.sin(angle);
+			return new TransformMatrix(cos,sin,-sin,cos,0,0); // TransformMatrix
+		},
+		rotateg: function(degree){
+			// summary:
+			//		forms a rotating matrix
+			// description:
+			//		The resulting matrix is used to rotate points
+			//		around the origin of coordinates (0, 0) by specified degree.
+			//		Seerotate() for comparison.
+			// degree: Number
+			//		an angle of rotation in degrees (>0 for CW)
+			// returns: TransformMatrix
+			return this.rotate(degToRad(degree)); // TransformMatrix
+		},
+		skewX: function(angle) {
+			//TODO : will be modified
+			// summary:
+			//		forms an x skewing matrix
+			// description:
+			//		The resulting matrix is used to skew points in the x dimension
+			//		around the origin of coordinates (0, 0) by specified angle.
+			// angle: Number
+			//		a skewing angle in radians
+			// returns: TransformMatrix
+			//|----------| |-----------|
+			//|m11|m21|dx| |  1| tan| 0|
+			//|----------| |-----------|
+			//|m12|m22|dy| |  0|   1| 0|
+			//|----------| |-----------|
+			//|  0|  0| 1| |  0|   0| 1|
+			//|----------| |-----------|
+			var tan = Math.tan(angle);
+			return new TransformMatrix(1,0,tan,1); // TransformMatrix
+		},
+		skewXg: function(degree){
+			//TODO : will be modified
+			// summary:
+			//		forms an x skewing matrix
+			// description:
+			//		The resulting matrix is used to skew points in the x dimension
+			//		around the origin of coordinates (0, 0) by specified degree.
+			//		See dojox/gfx/matrix.skewX() for comparison.
+			// degree: Number
+			//		a skewing angle in degrees
+			// returns: TransformMatrix
+			return this.skewX(degToRad(degree)); // dojox/gfx/matrix.TransformMatrix
+		},
+		skewY: function(angle){
+			//TODO : will be modified
+			// summary:
+			//		forms a y skewing matrix
+			// description:
+			//		The resulting matrix is used to skew points in the y dimension
+			//		around the origin of coordinates (0, 0) by specified angle.
+			// angle: Number
+			//		a skewing angle in radians
+			// returns: TransformMatrix
+			//|----------| |-----------|
+			//|m11|m21|dx| |  1|   0| 0|
+			//|----------| |-----------|
+			//|m12|m22|dy| |tan|   1| 0|
+			//|----------| |-----------|
+			//|  0|  0| 1| |  0|   0| 1|
+			//|----------| |-----------|
+			var tan = Math.tan(angle);
+
+			return new TransformMatrix(1,tan,0,1); // TransformMatrix
+		},
+		skewYg: function(degree){
+			//TODO : will be modified
+			// summary:
+			//		forms a y skewing matrix
+			// description:
+			//		The resulting matrix is used to skew points in the y dimension
+			//		around the origin of coordinates (0, 0) by specified degree.
+			//		See skewY() for comparison.
+			// degree: Number
+			//		a skewing angle in degrees
+			// returns: TransformMatrix
+			return this.skewY(degToRad(degree)); // TransformMatrix
+		},
+		reflect: function(a, b){
+			// summary:
+			//		forms a reflection matrix
+			// description:
+			//		The resulting matrix is used to reflect points around a vector,
+			//		which goes through the origin.
+			// a: dojox/gfx.Point|Number
+			//		a point-like object, which specifies a vector of reflection, or an X value
+			// b: Number?
+			//		a Y value
+			// returns: TransformMatrix
+			if(arguments.length == 1){
+				b = a.y;
+				a = a.x;
+			}
+			// make a unit vector
+			var a2 = a * a, b2 = b * b, n2 = a2 + b2, 
+				xx=2 * a2 / n2 - 1, 
+				xy = 2 * a * b / n2,
+				yx = xy,
+				yy = 2 * b2 / n2 - 1;
+			return new TransformMatrix(xx,yx,xy, yy); // TransformMatrix
+		},
+		project: function(a, b){
+			// summary:
+			//		forms an orthogonal projection matrix
+			// description:
+			//		The resulting matrix is used to project points orthogonally on a vector,
+			//		which goes through the origin.
+			// a:   Number
+			//		an x coordinate value
+			// b: Number?
+			//		a y coordinate value
+			// returns: TransformMatrix
+
+			// make a unit vector
+			var a2 = a * a, b2 = b * b, n2 = a2 + b2, 
+				xx = a2 / n2,
+				xy = a * b / n2
+				yx = xy,
+				yy = b2 / n2;
+			return new TransformMatrix(xx,yx,xy,yy); // TransformMatrix
+		},
+
+		// common operations
+
+		// high level operations
+
+		_sandwich: function(matrix, x, y){
+			// summary:
+			//		applies a matrix at a central point
+			// matrix: TransformMatrix
+			//		a 2D matrix-like object, which is applied at a central point
+			// x: Number
+			//		an x component of the central point
+			// y: Number
+			//		a y component of the central point
+			return this.translate(x, y).multiply(matrix)
+			                           .multiply(this.translate(-x, -y)); // TransformMatrix
+		},
+		scaleAt: function(a, b, c, d){
+			// summary:
+			//		scales a picture using a specified point as a center of scaling
+			// description:
+			//		Compare with scale().
+			// a: Number
+			//		a scaling factor used for the x coordinate, or a uniform scaling factor used for both coordinates
+			// b: Number?
+			//		a scaling factor used for the y coordinate
+			// c: Number|Point
+			//		an x component of a central point, or a central point
+			// d: Number
+			//		a y component of a central point
+			// returns: TransformMatrix
+			switch(arguments.length){
+				case 4:
+					// a and b are scale factor components, c and d are components of a point
+					return this._sandwich(this.scale(a, b), c, d); // TransformMatrix
+				case 3:
+					if(typeof c == "number"){
+						return this._sandwich(this.scale(a), b, c); // TransformMatrix
+					}
+					return this._sandwich(this.scale(a, b), c.x, c.y); // TransformMatrix
+			}
+			return this._sandwich(this.scale(a), b.x, b.y); // TransformMatrix
+		},
+		rotateAt: function(angle, a, b){
+			// summary:
+			//		rotates a picture using a specified point as a center of rotation
+			// description:
+			//		Compare with rotate().
+			// angle: Number
+			//		an angle of rotation in radians (>0 for CW)
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.rotate(angle), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.rotate(angle), a.x, a.y); // TransformMatrix
+		},
+		rotategAt: function(degree, a, b){
+			// summary:
+			//		rotates a picture using a specified point as a center of rotation
+			// description:
+			//		Compare with rotateg().
+			// degree: Number
+			//		an angle of rotation in degrees (>0 for CW)
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.rotateg(degree), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.rotateg(degree), a.x, a.y); // TransformMatrix
+		},
+		skewXAt: function(angle, a, b){
+			// summary:
+			//		skews a picture along the x axis using a specified point as a center of skewing
+			// description:
+			//		Compare with skewX().
+			// angle: Number
+			//		a skewing angle in radians
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.skewX(angle), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.skewX(angle), a.x, a.y); // TransformMatrix
+		},
+		skewXgAt: function(degree, a, b){
+			// summary:
+			//		skews a picture along the x axis using a specified point as a center of skewing
+			// description:
+			//		Compare with skewXg().
+			// degree: Number
+			//		a skewing angle in degrees
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.skewXg(degree), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.skewXg(degree), a.x, a.y); // TransformMatrix
+		},
+		skewYAt: function(angle, a, b){
+			// summary:
+			//		skews a picture along the y axis using a specified point as a center of skewing
+			// description:
+			//		Compare with skewY().
+			// angle: Number
+			//		a skewing angle in radians
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.skewY(angle), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.skewY(angle), a.x, a.y); // TransformMatrix
+		},
+		skewYgAt: function(/* Number */ degree, /* Number||Point */ a, /* Number? */ b){
+			// summary:
+			//		skews a picture along the y axis using a specified point as a center of skewing
+			// description:
+			//		Compare with skewYg().
+			// degree: Number
+			//		a skewing angle in degrees
+			// a: Number|dojox/gfx.Point
+			//		an x component of a central point, or a central point
+			// b: Number?
+			//		a y component of a central point
+			// returns: TransformMatrix
+			if(arguments.length > 2){
+				return this._sandwich(this.skewYg(degree), a, b); // TransformMatrix
+			}
+			return this._sandwich(this.skewYg(degree), a.x, a.y); // TransformMatrix
+		}
+	
+	
+	});
+
+	return numerics.TransformMatrix = TransformMatrix;
+});
+
+define('skylark-langx-numerics/TranslateTransform',[
+    "./numerics",
+    "./Transform",
+    "./MatrixTransform"
+],function(numerics,Transform,Matrix,Point,Rect) {
+
+    //|1   0   dx|
+    //|0   1   dy|
+    //|0   0    1|
+
+   var TranslateTransform =  Transform.inherit({
+        "klassName": "TranslateTransform",
+
+        "value": {
+            get: function() {
+                    return Matrix.scaleAt(this.x, this.y);
+            }
+        },
+
+        "x": {
+            get : function() {
+                return this._.x;
+            }
+        },
+
+        "y": {
+            get : function() {
+                return this._.y;
+            }
+        },
+
+        clone: /*SkewTransform*/ function() {},
+
+        transform: /*Point*/ function( /*Point*/ point) {},
+
+        transformBounds: /*Rect*/ function( /*Rect*/ rect) {},
+
+        "init": function( /*Number*/ x, /*Number*/ y) {
+            var _ = this._;
+
+            _.x = x ? x : 0;
+            _.y = y ? y : 0;
+        }
+    });
+
+    return numerics.TranslateTransform =TranslateTransform;
+});	
+
+define('skylark-langx-numerics/Vector4',[
+	"skylark-langx-klass",
+	"./numerics"
+] ,function(klass,numerics) {
+
+	var Vector4 = klass({
+		"klassName" : "Vector4",
+
+		set: function ( x, y, z, w ) {
+
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			this.w = w;
+
+			return this;
+		},
+
+		setScalar: function ( scalar ) {
+
+			this.x = scalar;
+			this.y = scalar;
+			this.z = scalar;
+			this.w = scalar;
+
+			return this;
+
+		},
+
+		setX: function ( x ) {
+
+			this.x = x;
+
+			return this;
+
+		},
+
+		setY: function ( y ) {
+
+			this.y = y;
+
+			return this;
+
+		},
+
+		setZ: function ( z ) {
+
+			this.z = z;
+
+			return this;
+
+		},
+
+		setW: function ( w ) {
+
+			this.w = w;
+
+			return this;
+
+		},
+
+		setComponent: function ( index, value ) {
+
+			switch ( index ) {
+
+				case 0: this.x = value; break;
+				case 1: this.y = value; break;
+				case 2: this.z = value; break;
+				case 3: this.w = value; break;
+				default: throw new Error( 'index is out of range: ' + index );
+
+			}
+
+			return this;
+		},
+
+		getComponent: function ( index ) {
+
+			switch ( index ) {
+
+				case 0: return this.x;
+				case 1: return this.y;
+				case 2: return this.z;
+				case 3: return this.w;
+				default: throw new Error( 'index is out of range: ' + index );
+
+			}
+
+		},
+
+		clone: function () {
+
+			return new this.constructor( this.x, this.y, this.z, this.w );
+
+		},
+
+		copy: function ( v ) {
+
+			this.x = v.x;
+			this.y = v.y;
+			this.z = v.z;
+			this.w = ( v.w !== undefined ) ? v.w : 1;
+
+			return this;
+
+		},
+
+		add: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'Vector4: .add() now only accepts one argument. Use .addVectors( a, b ) instead.' );
+				return this.addVectors( v, w );
+
+			}
+
+			this.x += v.x;
+			this.y += v.y;
+			this.z += v.z;
+			this.w += v.w;
+
+			return this;
+
+		},
+
+		addScalar: function ( s ) {
+
+			this.x += s;
+			this.y += s;
+			this.z += s;
+			this.w += s;
+
+			return this;
+
+		},
+
+		addVectors: function ( a, b ) {
+
+			this.x = a.x + b.x;
+			this.y = a.y + b.y;
+			this.z = a.z + b.z;
+			this.w = a.w + b.w;
+
+			return this;
+
+		},
+
+		addScaledVector: function ( v, s ) {
+
+			this.x += v.x * s;
+			this.y += v.y * s;
+			this.z += v.z * s;
+			this.w += v.w * s;
+
+			return this;
+
+		},
+
+		sub: function ( v, w ) {
+
+			if ( w !== undefined ) {
+
+				console.warn( 'Vector4: .sub() now only accepts one argument. Use .subVectors( a, b ) instead.' );
+				return this.subVectors( v, w );
+
+			}
+
+			this.x -= v.x;
+			this.y -= v.y;
+			this.z -= v.z;
+			this.w -= v.w;
+
+			return this;
+
+		},
+
+		subScalar: function ( s ) {
+
+			this.x -= s;
+			this.y -= s;
+			this.z -= s;
+			this.w -= s;
+
+			return this;
+
+		},
+
+		subVectors: function ( a, b ) {
+
+			this.x = a.x - b.x;
+			this.y = a.y - b.y;
+			this.z = a.z - b.z;
+			this.w = a.w - b.w;
+
+			return this;
+
+		},
+
+		multiplyScalar: function ( scalar ) {
+
+			this.x *= scalar;
+			this.y *= scalar;
+			this.z *= scalar;
+			this.w *= scalar;
+
+			return this;
+
+		},
+
+		applyMatrix4: function ( m ) {
+
+			var x = this.x, y = this.y, z = this.z, w = this.w;
+			var e = m.elements;
+
+			this.x = e[ 0 ] * x + e[ 4 ] * y + e[ 8 ] * z + e[ 12 ] * w;
+			this.y = e[ 1 ] * x + e[ 5 ] * y + e[ 9 ] * z + e[ 13 ] * w;
+			this.z = e[ 2 ] * x + e[ 6 ] * y + e[ 10 ] * z + e[ 14 ] * w;
+			this.w = e[ 3 ] * x + e[ 7 ] * y + e[ 11 ] * z + e[ 15 ] * w;
+
+			return this;
+
+		},
+
+		divideScalar: function ( scalar ) {
+
+			return this.multiplyScalar( 1 / scalar );
+
+		},
+
+		setAxisAngleFromQuaternion: function ( q ) {
+
+			// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
+
+			// q is assumed to be normalized
+
+			this.w = 2 * Math.acos( q.w );
+
+			var s = Math.sqrt( 1 - q.w * q.w );
+
+			if ( s < 0.0001 ) {
+
+				this.x = 1;
+				this.y = 0;
+				this.z = 0;
+
+			} else {
+
+				this.x = q.x / s;
+				this.y = q.y / s;
+				this.z = q.z / s;
+
+			}
+
+			return this;
+
+		},
+
+		setAxisAngleFromRotationMatrix: function ( m ) {
+
+			// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToAngle/index.htm
+
+			// assumes the upper 3x3 of m is a pure rotation matrix (i.e, unscaled)
+
+			var angle, x, y, z,		// variables for result
+				epsilon = 0.01,		// margin to allow for rounding errors
+				epsilon2 = 0.1,		// margin to distinguish between 0 and 180 degrees
+
+				te = m.elements,
+
+				m11 = te[ 0 ], m12 = te[ 4 ], m13 = te[ 8 ],
+				m21 = te[ 1 ], m22 = te[ 5 ], m23 = te[ 9 ],
+				m31 = te[ 2 ], m32 = te[ 6 ], m33 = te[ 10 ];
+
+			if ( ( Math.abs( m12 - m21 ) < epsilon ) &&
+			     ( Math.abs( m13 - m31 ) < epsilon ) &&
+			     ( Math.abs( m23 - m32 ) < epsilon ) ) {
+
+				// singularity found
+				// first check for identity matrix which must have +1 for all terms
+				// in leading diagonal and zero in other terms
+
+				if ( ( Math.abs( m12 + m21 ) < epsilon2 ) &&
+				     ( Math.abs( m13 + m31 ) < epsilon2 ) &&
+				     ( Math.abs( m23 + m32 ) < epsilon2 ) &&
+				     ( Math.abs( m11 + m22 + m33 - 3 ) < epsilon2 ) ) {
+
+					// this singularity is identity matrix so angle = 0
+
+					this.set( 1, 0, 0, 0 );
+
+					return this; // zero angle, arbitrary axis
+
+				}
+
+				// otherwise this singularity is angle = 180
+
+				angle = Math.PI;
+
+				var xx = ( m11 + 1 ) / 2;
+				var yy = ( m22 + 1 ) / 2;
+				var zz = ( m33 + 1 ) / 2;
+				var xy = ( m12 + m21 ) / 4;
+				var xz = ( m13 + m31 ) / 4;
+				var yz = ( m23 + m32 ) / 4;
+
+				if ( ( xx > yy ) && ( xx > zz ) ) {
+
+					// m11 is the largest diagonal term
+
+					if ( xx < epsilon ) {
+
+						x = 0;
+						y = 0.707106781;
+						z = 0.707106781;
+
+					} else {
+
+						x = Math.sqrt( xx );
+						y = xy / x;
+						z = xz / x;
+
+					}
+
+				} else if ( yy > zz ) {
+
+					// m22 is the largest diagonal term
+
+					if ( yy < epsilon ) {
+
+						x = 0.707106781;
+						y = 0;
+						z = 0.707106781;
+
+					} else {
+
+						y = Math.sqrt( yy );
+						x = xy / y;
+						z = yz / y;
+
+					}
+
+				} else {
+
+					// m33 is the largest diagonal term so base result on this
+
+					if ( zz < epsilon ) {
+
+						x = 0.707106781;
+						y = 0.707106781;
+						z = 0;
+
+					} else {
+
+						z = Math.sqrt( zz );
+						x = xz / z;
+						y = yz / z;
+
+					}
+
+				}
+
+				this.set( x, y, z, angle );
+
+				return this; // return 180 deg rotation
+
+			}
+
+			// as we have reached here there are no singularities so we can handle normally
+
+			var s = Math.sqrt( ( m32 - m23 ) * ( m32 - m23 ) +
+			                   ( m13 - m31 ) * ( m13 - m31 ) +
+			                   ( m21 - m12 ) * ( m21 - m12 ) ); // used to normalize
+
+			if ( Math.abs( s ) < 0.001 ) s = 1;
+
+			// prevent divide by zero, should not happen if matrix is orthogonal and should be
+			// caught by singularity test above, but I've left it in just in case
+
+			this.x = ( m32 - m23 ) / s;
+			this.y = ( m13 - m31 ) / s;
+			this.z = ( m21 - m12 ) / s;
+			this.w = Math.acos( ( m11 + m22 + m33 - 1 ) / 2 );
+
+			return this;
+
+		},
+
+		min: function ( v ) {
+
+			this.x = Math.min( this.x, v.x );
+			this.y = Math.min( this.y, v.y );
+			this.z = Math.min( this.z, v.z );
+			this.w = Math.min( this.w, v.w );
+
+			return this;
+
+		},
+
+		max: function ( v ) {
+
+			this.x = Math.max( this.x, v.x );
+			this.y = Math.max( this.y, v.y );
+			this.z = Math.max( this.z, v.z );
+			this.w = Math.max( this.w, v.w );
+
+			return this;
+
+		},
+
+		clamp: function ( min, max ) {
+
+			// assumes min < max, componentwise
+
+			this.x = Math.max( min.x, Math.min( max.x, this.x ) );
+			this.y = Math.max( min.y, Math.min( max.y, this.y ) );
+			this.z = Math.max( min.z, Math.min( max.z, this.z ) );
+			this.w = Math.max( min.w, Math.min( max.w, this.w ) );
+
+			return this;
+
+		},
+
+		clampScalar: function ( minVal, maxVal ) {
+
+			this.x = Math.max( minVal, Math.min( maxVal, this.x ) );
+			this.y = Math.max( minVal, Math.min( maxVal, this.y ) );
+			this.z = Math.max( minVal, Math.min( maxVal, this.z ) );
+			this.w = Math.max( minVal, Math.min( maxVal, this.w ) );
+
+			return this;
+
+		},
+
+		clampLength: function ( min, max ) {
+
+			var length = this.length();
+
+			return this.divideScalar( length || 1 ).multiplyScalar( Math.max( min, Math.min( max, length ) ) );
+
+		},
+
+		floor: function () {
+
+			this.x = Math.floor( this.x );
+			this.y = Math.floor( this.y );
+			this.z = Math.floor( this.z );
+			this.w = Math.floor( this.w );
+
+			return this;
+
+		},
+
+		ceil: function () {
+
+			this.x = Math.ceil( this.x );
+			this.y = Math.ceil( this.y );
+			this.z = Math.ceil( this.z );
+			this.w = Math.ceil( this.w );
+
+			return this;
+
+		},
+
+		round: function () {
+
+			this.x = Math.round( this.x );
+			this.y = Math.round( this.y );
+			this.z = Math.round( this.z );
+			this.w = Math.round( this.w );
+
+			return this;
+
+		},
+
+		roundToZero: function () {
+
+			this.x = ( this.x < 0 ) ? Math.ceil( this.x ) : Math.floor( this.x );
+			this.y = ( this.y < 0 ) ? Math.ceil( this.y ) : Math.floor( this.y );
+			this.z = ( this.z < 0 ) ? Math.ceil( this.z ) : Math.floor( this.z );
+			this.w = ( this.w < 0 ) ? Math.ceil( this.w ) : Math.floor( this.w );
+
+			return this;
+
+		},
+
+		negate: function () {
+
+			this.x = - this.x;
+			this.y = - this.y;
+			this.z = - this.z;
+			this.w = - this.w;
+
+			return this;
+
+		},
+
+		dot: function ( v ) {
+
+			return this.x * v.x + this.y * v.y + this.z * v.z + this.w * v.w;
+
+		},
+
+		lengthSq: function () {
+
+			return this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w;
+
+		},
+
+		length: function () {
+
+			return Math.sqrt( this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w );
+
+		},
+
+		manhattanLength: function () {
+
+			return Math.abs( this.x ) + Math.abs( this.y ) + Math.abs( this.z ) + Math.abs( this.w );
+
+		},
+
+		normalize: function () {
+
+			return this.divideScalar( this.length() || 1 );
+
+		},
+
+		setLength: function ( length ) {
+
+			return this.normalize().multiplyScalar( length );
+
+		},
+
+		lerp: function ( v, alpha ) {
+
+			this.x += ( v.x - this.x ) * alpha;
+			this.y += ( v.y - this.y ) * alpha;
+			this.z += ( v.z - this.z ) * alpha;
+			this.w += ( v.w - this.w ) * alpha;
+
+			return this;
+
+		},
+
+		lerpVectors: function ( v1, v2, alpha ) {
+
+			return this.subVectors( v2, v1 ).multiplyScalar( alpha ).add( v1 );
+
+		},
+
+		equals: function ( v ) {
+
+			return ( ( v.x === this.x ) && ( v.y === this.y ) && ( v.z === this.z ) && ( v.w === this.w ) );
+
+		},
+
+		fromArray: function ( array, offset ) {
+
+			if ( offset === undefined ) offset = 0;
+
+			this.x = array[ offset ];
+			this.y = array[ offset + 1 ];
+			this.z = array[ offset + 2 ];
+			this.w = array[ offset + 3 ];
+
+			return this;
+
+		},
+
+		toArray: function ( array, offset ) {
+
+			if ( array === undefined ) array = [];
+			if ( offset === undefined ) offset = 0;
+
+			array[ offset ] = this.x;
+			array[ offset + 1 ] = this.y;
+			array[ offset + 2 ] = this.z;
+			array[ offset + 3 ] = this.w;
+
+			return array;
+
+		},
+
+		fromBufferAttribute: function ( attribute, index, offset ) {
+
+			if ( offset !== undefined ) {
+
+				console.warn( 'Vector4: offset has been removed from .fromBufferAttribute().' );
+
+			}
+
+			this.x = attribute.getX( index );
+			this.y = attribute.getY( index );
+			this.z = attribute.getZ( index );
+			this.w = attribute.getW( index );
+
+			return this;
+
+		},
+
+
+		"_construct" :function ( x, y, z, w ) {
+
+			this.x = x || 0;
+			this.y = y || 0;
+			this.z = z || 0;
+			this.w = ( w !== undefined ) ? w : 1;
+
+		}
+
+	});
+
+/*
+	Object.defineProperties( Vector4.prototype, {
+
+		"width": {
+
+			get: function () {
+
+				return this.z;
+
+			},
+
+			set: function ( value ) {
+
+				this.z = value;
+
+			}
+
+		},
+
+		"height": {
+
+			get: function () {
+
+				return this.w;
+
+			},
+
+			set: function ( value ) {
+
+				this.w = value;
+
+			}
+
+		}
+
+	} );
+*/
+
+	return numerics.Vector4 = Vector4 ;
+
+});
+define('skylark-langx-numerics/main',[
+	"./numerics",
+	"./Euler",
+	"./maths",
+	"./Matrix3",
+	"./Matrix4",
+	"./MatrixTransform",
+	"./Plane",
+	"./Quaternion",
+	"./RotateTransform",
+	"./ScaleTransform",
+	"./SkewTransform",
+	"./Transform",
+	"./TransformMatrix",
+	"./TranslateTransform",
+	"./Vector2",
+	"./Vector3",
+	"./Vector4"
+],function(numerics){
+	return numerics;
+});
+define('skylark-langx-numerics', ['skylark-langx-numerics/main'], function (main) { return main; });
+
+define('skylark-langx/numerics',[
+	"skylark-langx-numerics"
+],function(numerics){
+	return numerics;
 });
 define('skylark-langx/objects',[
     "skylark-langx-objects"
@@ -4258,21 +10661,11 @@ define('skylark-langx/Stateful',[
 
 	return Stateful;
 });
-define('skylark-langx-emitter/Emitter',[
-    "skylark-langx-events/Emitter"
-],function(Emitter){
-    return Emitter;
-});
-define('skylark-langx-emitter/Evented',[
-	"./Emitter"
-],function(Emitter){
-	return Emitter;
-});
 define('skylark-langx-topic/topic',[
 	"skylark-langx-ns",
-	"skylark-langx-emitter/Evented"
-],function(skylark,Evented){
-	var hub = new Evented();
+	"skylark-langx-events"
+],function(skylark,events){
+	var hub = new events.Emitter();
 
 	return skylark.attach("langx.topic",{
 	    publish: function(name, arg1,argn) {
@@ -4323,16 +10716,18 @@ define('skylark-langx/langx',[
     "./aspect",
     "./async",
     "./binary",
+    "./constructs",
     "./datetimes",
     "./Deferred",
     "./Emitter",
     "./Evented",
     "./events",
     "./funcs",
+    "./globals",
     "./hoster",
     "./klass",
     "./maths",
-    "./numbers",
+    "./numerics",
     "./objects",
     "./Stateful",
     "./strings",
@@ -4345,16 +10740,18 @@ define('skylark-langx/langx',[
     aspect,
     async,
     binary,
+    constructs,
     datetimes,
     Deferred,
     Emitter,
     Evented,
     events,
     funcs,
+    globals,
     hoster,
     klass,
     maths,
-    numbers,
+    numerics,
     objects,
     Stateful,
     strings,
@@ -4424,7 +10821,7 @@ define('skylark-langx/langx',[
     });
 
 
-    mixin(langx, arrays,aspect,datetimes,funcs,numbers,objects,strings,types,{
+    mixin(langx, arrays,aspect,datetimes,funcs,numerics,objects,strings,types,{
         ArrayStore : ArrayStore,
 
         async : async,
@@ -4453,7 +10850,33 @@ define('skylark-domx-browser/browser',[
     "use strict";
 
     var browser = langx.hoster.browser;
- 
+
+
+    langx.mixin(browser, {
+
+        isIE : !!/msie/i.exec( window.navigator.userAgent ),
+
+        location: function() {
+            return window.location;
+        },
+
+        support : {
+
+        }
+
+    });
+
+
+
+    return skylark.attach("domx.browser",browser);
+});
+
+define('skylark-domx-browser/support/css3',[
+    "skylark-langx/langx",
+    "../browser"
+], function(langx,browser) {
+    "use strict";
+
     var checkedCssProperties = {
             "transitionproperty": "TransitionProperty",
         },
@@ -4484,16 +10907,6 @@ define('skylark-domx-browser/browser',[
                           testEl.mozMatchesSelector ||
                           testEl.oMatchesSelector ||
                           testEl.matchesSelector,
-
-        requestFullScreen = testEl.requestFullscreen || 
-                            testEl.webkitRequestFullscreen || 
-                            testEl.mozRequestFullScreen || 
-                            testEl.msRequestFullscreen,
-
-        exitFullScreen =  document.exitFullscreen ||
-                          document.webkitCancelFullScreen ||
-                          document.mozCancelFullScreen ||
-                          document.msExitFullscreen,
 
         testStyle = testEl.style;
 
@@ -4537,10 +10950,8 @@ define('skylark-domx-browser/browser',[
         return cssStyles[name] || name;
     }
 
-    langx.mixin(browser, {
-        css3PropPrefix: css3PropPrefix,
 
-        isIE : !!/msie/i.exec( window.navigator.userAgent ),
+    var css3 = {
 
         normalizeStyleProperty: normalizeStyleProperty,
 
@@ -4548,35 +10959,106 @@ define('skylark-domx-browser/browser',[
 
         normalizeCssEvent: normalizeCssEvent,
 
-        matchesSelector: matchesSelector,
+        matchesSelector: matchesSelector        
+    };
 
-        requestFullScreen : requestFullScreen,
+    langx.mixin(browser,css3);
 
-        exitFullscreen : requestFullScreen,
-
-        location: function() {
-            return window.location;
-        },
-
-        support : {
-
-        }
-
-    });
+    browser.css3PropPrefix = css3.propPrefix =  css3PropPrefix;
 
     if  (transEndEventName) {
-        browser.support.transition = {
+        browser.support.transition = css3.transition = {
             end : transEndEventName
         };
     }
 
+    browser.support.cssPointerEvents = css3.pointerEvents =  (function() {
+        testEl.style.cssText = 'pointer-events:auto';
+        return testEl.style.pointerEvents === 'auto';
+    })(),
+
+
+
+
     testEl = null;
 
-    return skylark.attach("domx.browser",browser);
+    return browser.support.css3 = css3;
 });
 
+define('skylark-domx-browser/support/fullscreen',[
+	"../browser"
+],function(browser){
+
+    const FullscreenApi = { 
+    	prefixed: true 
+    };
+
+    const apiMap = [
+        [
+            'requestFullscreen',
+            'exitFullscreen',
+            'fullscreenElement',
+            'fullscreenEnabled',
+            'fullscreenchange',
+            'fullscreenerror',
+            'fullscreen'
+        ],
+        [
+            'webkitRequestFullscreen',
+            'webkitExitFullscreen',
+            'webkitFullscreenElement',
+            'webkitFullscreenEnabled',
+            'webkitfullscreenchange',
+            'webkitfullscreenerror',
+            '-webkit-full-screen'
+        ],
+        [
+            'mozRequestFullScreen',
+            'mozCancelFullScreen',
+            'mozFullScreenElement',
+            'mozFullScreenEnabled',
+            'mozfullscreenchange',
+            'mozfullscreenerror',
+            '-moz-full-screen'
+        ],
+        [
+            'msRequestFullscreen',
+            'msExitFullscreen',
+            'msFullscreenElement',
+            'msFullscreenEnabled',
+            'MSFullscreenChange',
+            'MSFullscreenError',
+            '-ms-fullscreen'
+        ]
+    ];
+    const specApi = apiMap[0];
+    let browserApi;
+    for (let i = 0; i < apiMap.length; i++) {
+        if (apiMap[i][1] in document) {
+            browserApi = apiMap[i];
+            break;
+        }
+    }
+    if (browserApi) {
+        for (let i = 0; i < browserApi.length; i++) {
+            FullscreenApi[specApi[i]] = browserApi[i];
+        }
+        FullscreenApi.prefixed = browserApi[0] !== specApi[0];
+
+        browser.requestFullscreen = document.body[FullscreenApi["requestFullscreen"]];
+        browser.exitFullscreen = document[FullscreenApi["exitFullscreen"]];
+
+        browser.support.fullscreen = FullscreenApi;
+    } else {
+	    browser.support.fullscreen = null;
+    }
+
+    return browser.support.fullscreen;
+});
 define('skylark-domx-browser/main',[
-	"./browser"
+	"./browser",
+	"./support/css3",
+	"./support/fullscreen"
 ],function(browser){
 	return browser;
 });
@@ -4607,10 +11089,32 @@ define('skylark-domx-noder/noder',[
         map = Array.prototype.map,
         slice = Array.prototype.slice;
 
-    function ensureNodes(nodes, copyByClone) {
-        if (!langx.isArrayLike(nodes)) {
-            nodes = [nodes];
+
+
+    function normalizeContent(content) {
+        if (typeof content === 'function') {
+            content = content();
         }
+        return map.call(langx.isArrayLike(content) ? content : [content],value => {
+            if (typeof value === 'function') {
+                value = value();
+            }
+            if (isElement(value) || isTextNode(value)) {
+                return value;
+            }
+            if (typeof value === 'string' && /\S/.test(value)) {
+                return document.createTextNode(value);
+            }
+        }).filter(value => value);
+    }
+
+    function ensureNodes(content, copyByClone) {
+        var nodes = normalizeContent(content);
+
+
+        //if (!langx.isArrayLike(nodes)) {
+        //    nodes = [nodes];
+        //}
         if (copyByClone) {
             nodes = map.call(nodes, function(node) {
                 return node.cloneNode(true);
@@ -4732,10 +11236,10 @@ define('skylark-domx-noder/noder',[
     /*   
      * Create a element and set attributes on it.
      * @param {HTMLElement} tag
-     * @param {props} props
+     * @param {attrs} attrs
      * @param } parent
      */
-    function createElement(tag, props, parent) {
+    function createElement(tag, props,attrs, parent) {
         var node;
 
         if (/svg/i.test(tag)) {
@@ -4744,9 +11248,24 @@ define('skylark-domx-noder/noder',[
             node = document.createElement(tag);
         }
 
+        if (langx.isHtmlNode(props)) {
+            parent = props;
+            props = null;
+            attrs = null;
+        } else if (langx.isHtmlNode(attrs)){
+            parent = attrs;
+            attrs = null;
+        }
+
         if (props) {
             for (var name in props) {
-                node.setAttribute(name, props[name]);
+                node[name] = props[name];
+            }
+        }
+
+        if (attrs) {
+            for (var name in attrs) {
+                node.setAttribute(name, attrs[name]);
             }
         }
         if (parent) {
@@ -4857,11 +11376,11 @@ function removeSelfClosingTags(xml) {
 
     var fulledEl = null;
 
-    function fullScreen(el) {
+    function fullscreen(el) {
         if (el === false) {
-            browser.exitFullScreen.apply(document);
+            return browser.exitFullscreen.apply(document);
         } else if (el) {
-            browser.requestFullScreen.apply(el);
+            return browser.requestFullscreen.apply(el);
             fulledEl = el;
         } else {
             return (
@@ -4871,6 +11390,10 @@ function removeSelfClosingTags(xml) {
                 document.msFullscreenElement
             )
         }
+    }
+
+    function isFullscreen(el) {
+        return fullscreen() === el;
     }
 
 
@@ -4911,6 +11434,28 @@ function removeSelfClosingTags(xml) {
 
         return focusableIfVisible && $( element ).is( ":visible" ) && visible( $( element ) );
     };
+
+    function fromPoint(x,y) {
+        return document.elementFromPoint(x,y);
+    }
+
+    /**
+     * Generate id
+     * @param   {HTMLElement} el
+     * @returns {String}
+     * @private
+     */
+    function generateId(el) {
+        var str = el.tagName + el.className + el.src + el.href + el.textContent,
+            i = str.length,
+            sum = 0;
+
+        while (i--) {
+            sum += str.charCodeAt(i);
+        }
+
+        return sum.toString(36);
+    }
 
 
    var rxhtmlTag = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:]+)[^>]*)\/>/gi;
@@ -4995,6 +11540,24 @@ function removeSelfClosingTags(xml) {
 
     function isActive (elem) {
             return elem === document.activeElement && (elem.type || elem.href);
+    }
+
+
+    function isTextNode(node) {
+        return node && node.nodeType === 3;
+    }
+
+
+    function isElement(node) {
+        return node && node.nodeType === 1;
+    }
+
+    function isInFrame() {
+        try {
+            return window.parent !== window.self;
+        } catch (x) {
+            return true;
+        }
     }
 
     /*   
@@ -5197,6 +11760,22 @@ function removeSelfClosingTags(xml) {
         }
     }
 
+
+
+    function isInput (el) { 
+        return el.tagName === 'INPUT' || 
+               el.tagName === 'TEXTAREA' || 
+               el.tagName === 'SELECT' || 
+               isEditable(el); 
+    }
+    
+    function isEditable (el) {
+      if (!el) { return false; } // no parents were editable
+      if (el.contentEditable === 'false') { return false; } // stop the lookup
+      if (el.contentEditable === 'true') { return true; } // found a contentEditable element in the chain
+      return isEditable(el.parentNode); // contentEditable is set to 'inherit'
+    }
+
     function noder() {
         return noder;
     }
@@ -5228,26 +11807,41 @@ function removeSelfClosingTags(xml) {
 
         createFragment: createFragment,
 
-     
         createTextNode: createTextNode,
 
         doc: doc,
 
         empty: empty,
 
-        fullScreen: fullScreen,
+        generateId,
+
+        fullscreen: fullscreen,
 
         focusable: focusable,
+
+        fromPoint,
 
         html: html,
 
         isActive,
 
-        isChildOf: isChildOf,
+        isChildOf,
 
-        isDocument: isDocument,
+        isDocument,
 
-        isInDocument: isInDocument,
+        isEditable,
+        
+        isElement,
+
+        isFullscreen,
+
+        isInDocument,
+
+        isInFrame,
+
+        isInput,
+
+        isTextNode,
 
         isWindow: langx.isWindow,
 
@@ -5284,13 +11878,6 @@ function removeSelfClosingTags(xml) {
 
     return skylark.attach("domx.noder" , noder);
 });
-define('skylark-domx-noder/main',[
-	"./noder"
-],function(noder){
-	return noder;
-});
-define('skylark-domx-noder', ['skylark-domx-noder/main'], function (main) { return main; });
-
 define('skylark-domx-styler/styler',[
     "skylark-langx/skylark",
     "skylark-langx/langx"
@@ -5373,7 +11960,7 @@ define('skylark-domx-styler/styler',[
     }
 
     function isInvisible(elm) {
-        return styler.css(elm, "display") == "none" || styler.css(elm, "opacity") == 0;
+        return styler.css(elm, "display") == "none" || styler.css(elm, "opacity") == 0 || styler.css(elm,"visibility") == "hidden";
     }
 
     /*
@@ -5433,10 +12020,13 @@ define('skylark-domx-styler/styler',[
      * @param {Any} value
      */
     function css(elm, property, value) {
-        if (arguments.length < 3) {
+        //if (arguments.length < 3) {
+        if (value == void 0) {
             var computedStyle,
                 computedStyle = getStyles(elm)
-            if (langx.isString(property)) {
+            if (property == void 0) {
+                return computedStyle;
+            } else if (langx.isString(property)) {
                 return elm.style[camelCase(property)] || computedStyle.getPropertyValue(dasherize(property))
             } else if (langx.isArrayLike(property)) {
                 var props = {}
@@ -5558,12 +12148,1262 @@ define('skylark-domx-styler/styler',[
 
     return skylark.attach("domx.styler", styler);
 });
+define('skylark-domx-styler/main',[
+	"./styler"
+],function(styler,velm,$){
+	
+	return styler;
+});
+define('skylark-domx-styler', ['skylark-domx-styler/main'], function (main) { return main; });
+
+define('skylark-domx-noder/overlay',[
+	"skylark-domx-styler",
+	"./noder"
+],function(styler,noder){
+    /*   
+     *
+     * @param {Node} elm
+     * @param {Node} params
+     */
+    function overlay(elm, params) {
+        var overlayDiv = noder.createElement("div", params);
+        styler.css(overlayDiv, {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 0x7FFFFFFF,
+            opacity: 0.7
+        });
+        elm.appendChild(overlayDiv);
+        return overlayDiv;
+
+    }
+
+    return noder.overlay = overlay;
+ });
+define('skylark-domx-noder/throb',[
+    "skylark-langx/langx",
+    "skylark-domx-styler",
+    "./noder"
+],function(langx,styler,noder) {
+
+    
+    /*   
+     * Replace an old node with the specified node.
+     * @param {HTMLElement} elm
+     * @param {Node} params
+     */
+    function throb(elm, params) {
+        params = params || {};
+
+        var self = this,
+            text = params.text,
+            style = params.style,
+            time = params.time,
+            callback = params.callback,
+            timer,
+
+            throbber = noder.createElement("div", {
+                "className": params.className || "throbber"
+            }),
+            //_overlay = overlay(throbber, {
+            //    "class": 'overlay fade'
+            //}),
+            remove = function() {
+                if (timer) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+                if (throbber) {
+                    noder.remove(throbber);
+                    throbber = null;
+                }
+            },
+            update = function(params) {
+                if (params && params.text && throbber) {
+                    textNode.nodeValue = params.text;
+                }
+            };
+
+        if (params.style) {
+            styler.css(throbber,params.style);
+        }
+
+        //throb = noder.createElement("div", {
+        //   "class": params.throb && params.throb.className || "throb"
+        //}),
+        //textNode = noder.createTextNode(text || ""),
+ 
+        var content = params.content ||  '<span class="throb"></span>';
+
+        //throb.appendChild(textNode);
+        //throbber.appendChild(throb);
+
+        noder.html(throbber,content);
+        
+        elm.appendChild(throbber);
+
+        var end = function() {
+            remove();
+            if (callback) callback();
+        };
+        if (time) {
+            timer = setTimeout(end, time);
+        }
+
+        return {
+            throbber : throbber,
+            remove: remove,
+            update: update
+        };
+    }
+
+    return noder.throb = throb;
+});
+define('skylark-domx-noder/main',[
+	"./noder",
+	"./overlay",
+	"./throb"
+],function(noder){
+	return noder;
+});
+define('skylark-domx-noder', ['skylark-domx-noder/main'], function (main) { return main; });
+
+define('skylark-domx-geom/geom',[
+    "skylark-langx/skylark",
+    "skylark-langx/langx",
+    "skylark-domx-noder",
+    "skylark-domx-styler"
+], function(skylark, langx, noder, styler) {
+    var rootNodeRE = /^(?:body|html)$/i,
+        px = langx.toPixel,
+        offsetParent = noder.offsetParent,
+        cachedScrollbarWidth;
+
+    function scrollbarWidth() {
+        if (cachedScrollbarWidth !== undefined) {
+            return cachedScrollbarWidth;
+        }
+        var w1, w2,
+            div = noder.createFragment("<div style=" +
+                "'display:block;position:absolute;width:200px;height:200px;overflow:hidden;'>" +
+                "<div style='height:300px;width:auto;'></div></div>")[0],
+            innerDiv = div.childNodes[0];
+
+        noder.append(document.body, div);
+
+        w1 = innerDiv.offsetWidth;
+
+        styler.css(div, "overflow", "scroll");
+
+        w2 = innerDiv.offsetWidth;
+
+        if (w1 === w2) {
+            w2 = div[0].clientWidth;
+        }
+
+        noder.remove(div);
+
+        return (cachedScrollbarWidth = w1 - w2);
+    }
+
+    
+    /*
+     * Get the widths of each border of the specified element.
+     * @param {HTMLElement} elm
+     */
+    function borderExtents(elm) {
+        if (noder.isWindow(elm)) {
+            return {
+                left : 0,
+                top : 0,
+                right : 0,
+                bottom : 0
+            }
+        }        var s = getComputedStyle(elm);
+        return {
+            left: px(s.borderLeftWidth, elm),
+            top: px(s.borderTopWidth, elm),
+            right: px(s.borderRightWidth, elm),
+            bottom: px(s.borderBottomWidth, elm)
+        }
+    }
+
+    //viewport coordinate
+    /*
+     * Get or set the viewport position of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    function boundingPosition(elm, coords) {
+        if (coords === undefined) {
+            return rootNodeRE.test(elm.nodeName) ? { top: 0, left: 0 } : elm.getBoundingClientRect();
+        } else {
+            var // Get *real* offsetParent
+                parent = offsetParent(elm),
+                // Get correct offsets
+                parentOffset = boundingPosition(parent),
+                mex = marginExtents(elm),
+                pbex = borderExtents(parent);
+
+            relativePosition(elm, {
+                top: coords.top - parentOffset.top - mex.top - pbex.top,
+                left: coords.left - parentOffset.left - mex.left - pbex.left
+            });
+            return this;
+        }
+    }
+
+    /*
+     * Get or set the viewport rect of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    function boundingRect(elm, coords) {
+        if (coords === undefined) {
+            if (elm == window || elm == document.documentElement || elm == document.body){
+                return {
+                    top : 0,
+                    left : 0,
+                    bottom : window.innerHeight,
+                    right : window.innerWidth,
+                    height : window.innerHeight,
+                    width : window.innerWidth
+                };
+            } else if (elm.getBoundingClientRect) {
+                return elm.getBoundingClientRect();
+            }
+        } else {
+            boundingPosition(elm, coords);
+            size(elm, coords);
+            return this;
+        }
+    }
+
+    /*
+     * Get or set the height of the specified element client box.
+     * @param {HTMLElement} elm
+     * @param {Number} value
+     */
+    function clientHeight(elm, value) {
+        if (value == undefined) {
+            return clientSize(elm).height;
+        } else {
+            return clientSize(elm, {
+                height: value
+            });
+        }
+    }
+
+    /*
+     * Get or set the size of the specified element client box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} dimension
+     */
+    function clientSize(elm, dimension) {
+        if (dimension == undefined) {
+            return {
+                width: elm.clientWidth,
+                height: elm.clientHeight
+            }
+        } else {
+            var isBorderBox = (styler.css(elm, "box-sizing") === "border-box"),
+                props = {
+                    width: dimension.width,
+                    height: dimension.height
+                };
+            if (!isBorderBox) {
+                var pex = paddingExtents(elm);
+
+                if (props.width !== undefined) {
+                    props.width = props.width - pex.left - pex.right;
+                }
+
+                if (props.height !== undefined) {
+                    props.height = props.height - pex.top - pex.bottom;
+                }
+            } else {
+                var bex = borderExtents(elm);
+
+                if (props.width !== undefined) {
+                    props.width = props.width + bex.left + bex.right;
+                }
+
+                if (props.height !== undefined) {
+                    props.height = props.height + bex.top + bex.bottom;
+                }
+
+            }
+            styler.css(elm, props);
+            return this;
+        }
+        return {
+            width: elm.clientWidth,
+            height: elm.clientHeight
+        };
+    }
+
+    /*
+     * Get or set the width of the specified element client box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} dimension
+     */
+    function clientWidth(elm, value) {
+        if (value == undefined) {
+            return clientSize(elm).width;
+        } else {
+            clientSize(elm, {
+                width: value
+            });
+            return this;
+        }
+    }
+
+    /*
+     * Get the rect of the specified element content box.
+     * @param {HTMLElement} elm
+     */
+    function contentRect(elm) {
+        var cs = clientSize(elm),
+            pex = paddingExtents(elm);
+
+
+        //// On Opera, offsetLeft includes the parent's border
+        //if(has("opera")){
+        //    pe.l += be.l;
+        //    pe.t += be.t;
+        //}
+        return {
+            left: pex.left,
+            top: pex.top,
+            width: cs.width - pex.left - pex.right,
+            height: cs.height - pex.top - pex.bottom
+        };
+    }
+
+    /*
+     * Get the document size.
+     * @param {HTMLDocument} doc
+     */
+    function getDocumentSize(doc) {
+        var documentElement = doc.documentElement,
+            body = doc.body,
+            max = Math.max,
+            scrollWidth = max(documentElement.scrollWidth, body.scrollWidth),
+            clientWidth = max(documentElement.clientWidth, body.clientWidth),
+            offsetWidth = max(documentElement.offsetWidth, body.offsetWidth),
+            scrollHeight = max(documentElement.scrollHeight, body.scrollHeight),
+            clientHeight = max(documentElement.clientHeight, body.clientHeight),
+            offsetHeight = max(documentElement.offsetHeight, body.offsetHeight);
+
+        return {
+            width: scrollWidth < offsetWidth ? clientWidth : scrollWidth,
+            height: scrollHeight < offsetHeight ? clientHeight : scrollHeight
+        };
+    }
+
+    /*
+     * Get the document size.
+     * @param {HTMLElement} elm
+     * @param {Number} value
+     */
+    function height(elm, value) {
+        if (value == undefined) {
+            return size(elm).height;
+        } else {
+            size(elm, {
+                height: value
+            });
+            return this;
+        }
+    }
+
+    /*
+     * Get the widths of each margin of the specified element.
+     * @param {HTMLElement} elm
+     */
+    function marginExtents(elm) {
+        if (noder.isWindow(elm)) {
+            return {
+                left : 0,
+                top : 0,
+                right : 0,
+                bottom : 0
+            }
+        }
+        var s = getComputedStyle(elm);
+        return {
+            left: px(s.marginLeft),
+            top: px(s.marginTop),
+            right: px(s.marginRight),
+            bottom: px(s.marginBottom),
+        }
+    }
+
+
+    function marginRect(elm) {
+        var obj = relativeRect(elm),
+            me = marginExtents(elm);
+
+        return {
+            left: obj.left,
+            top: obj.top,
+            width: obj.width + me.left + me.right,
+            height: obj.height + me.top + me.bottom
+        };
+    }
+
+
+    function marginSize(elm) {
+        var obj = size(elm),
+            me = marginExtents(elm);
+
+        return {
+            width: obj.width + me.left + me.right,
+            height: obj.height + me.top + me.bottom
+        };
+    }
+
+    /*
+     * Get the widths of each padding of the specified element.
+     * @param {HTMLElement} elm
+     */
+    function paddingExtents(elm) {
+        if (noder.isWindow(elm)) {
+            return {
+                left : 0,
+                top : 0,
+                right : 0,
+                bottom : 0
+            }
+        }
+        var s = getComputedStyle(elm);
+        return {
+            left: px(s.paddingLeft),
+            top: px(s.paddingTop),
+            right: px(s.paddingRight),
+            bottom: px(s.paddingBottom),
+        }
+    }
+
+    /*
+     * Get or set the document position of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    //coordinate to the document
+    function pagePosition(elm, coords) {
+        if (coords === undefined) {
+            var obj = elm.getBoundingClientRect(),
+                w = elm.ownerDocument.defaultView;
+            return {
+                left: obj.left + w.pageXOffset,
+                top: obj.top + w.pageYOffset
+            }
+        } else {
+            var // Get *real* offsetParent
+                parent = offsetParent(elm),
+                // Get correct offsets
+                parentOffset = pagePosition(parent),
+                mex = marginExtents(elm),
+                pbex = borderExtents(parent);
+
+            relativePosition(elm, {
+                top: coords.top - parentOffset.top - mex.top - pbex.top,
+                left: coords.left - parentOffset.left - mex.left - pbex.left
+            });
+            return this;
+        }
+    }
+
+    /*
+     * Get or set the document rect of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    function pageRect(elm, coords) {
+        if (coords === undefined) {
+            var obj = elm.getBoundingClientRect(),
+                w = elm.ownerDocument.defaultView;
+            return {
+                left: obj.left + w.pageXOffset,
+                top: obj.top + w.pageYOffset,
+                width: Math.round(obj.width),
+                height: Math.round(obj.height)
+            }
+        } else {
+            pagePosition(elm, coords);
+            size(elm, coords);
+            return this;
+        }
+    }
+
+    /*
+     * Get or set the position of the specified element border box , relative to parent element.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    // coordinate relative to it's parent
+    function relativePosition(elm, coords) {
+        if (coords == undefined) {
+            var // Get *real* offsetParent
+                parent = offsetParent(elm),
+                // Get correct offsets
+                offset = boundingPosition(elm),
+                parentOffset = boundingPosition(parent),
+                mex = marginExtents(elm),
+                pbex = borderExtents(parent);
+
+            // Subtract parent offsets and element margins
+            return {
+                top: offset.top - parentOffset.top - pbex.top - mex.top,
+                left: offset.left - parentOffset.left - pbex.left - mex.left
+            }
+        } else {
+            var props = {
+                top: coords.top,
+                left: coords.left
+            }
+
+            if (styler.css(elm, "position") == "static") {
+                props['position'] = "relative";
+            }
+            styler.css(elm, props);
+            return this;
+        }
+    }
+
+    /*
+     * Get or set the rect of the specified element border box , relatived to parent element.
+     * @param {HTMLElement} elm
+     * @param {PlainObject} coords
+     */
+    function relativeRect(elm, coords) {
+        if (coords === undefined) {
+            var // Get *real* offsetParent
+                parent = offsetParent(elm),
+                // Get correct offsets
+                offset = boundingRect(elm),
+                parentOffset = boundingPosition(parent),
+                mex = marginExtents(elm),
+                pbex = borderExtents(parent);
+
+            // Subtract parent offsets and element margins
+            return {
+                top: offset.top - parentOffset.top - pbex.top, // - mex.top,
+                left: offset.left - parentOffset.left - pbex.left, // - mex.left,
+                width: offset.width,
+                height: offset.height
+            }
+        } else {
+            relativePosition(elm, coords);
+            size(elm, coords);
+            return this;
+        }
+    }
+    /*
+     * Scroll the specified element into view.
+     * @param {HTMLElement} elm
+     * @param {} align
+     */
+    function scrollIntoView(elm, align) {
+        function getOffset(elm, rootElm) {
+            var x, y, parent = elm;
+
+            x = y = 0;
+            while (parent && parent != rootElm && parent.nodeType) {
+                x += parent.offsetLeft || 0;
+                y += parent.offsetTop || 0;
+                parent = parent.offsetParent;
+            }
+
+            return { x: x, y: y };
+        }
+
+        var parentElm = elm.parentNode;
+        var x, y, width, height, parentWidth, parentHeight;
+        var pos = getOffset(elm, parentElm);
+
+        x = pos.x;
+        y = pos.y;
+        width = elm.offsetWidth;
+        height = elm.offsetHeight;
+        parentWidth = parentElm.clientWidth;
+        parentHeight = parentElm.clientHeight;
+
+        if (align == "end") {
+            x -= parentWidth - width;
+            y -= parentHeight - height;
+        } else if (align == "center") {
+            x -= (parentWidth / 2) - (width / 2);
+            y -= (parentHeight / 2) - (height / 2);
+        }
+
+        parentElm.scrollLeft = x;
+        parentElm.scrollTop = y;
+
+        return this;
+    }
+    /*
+     * Get or set the current horizontal position of the scroll bar for the specified element.
+     * @param {HTMLElement} elm
+     * @param {Number} value
+     */
+    function scrollLeft(elm, value) {
+        if (elm.nodeType === 9) {
+            elm = elm.defaultView;
+        }
+        var hasScrollLeft = "scrollLeft" in elm;
+        if (value === undefined) {
+            return hasScrollLeft ? elm.scrollLeft : elm.pageXOffset
+        } else {
+            if (hasScrollLeft) {
+                elm.scrollLeft = value;
+            } else {
+                elm.scrollTo(value, elm.scrollY);
+            }
+            return this;
+        }
+    }
+    /*
+     * Get or the current vertical position of the scroll bar for the specified element.
+     * @param {HTMLElement} elm
+     * @param {Number} value
+     */
+    function scrollTop(elm, value) {
+        if (elm.nodeType === 9) {
+            elm = elm.defaultView;
+        }
+        var hasScrollTop = "scrollTop" in elm;
+
+        if (value === undefined) {
+            return hasScrollTop ? elm.scrollTop : elm.pageYOffset
+        } else {
+            if (hasScrollTop) {
+                elm.scrollTop = value;
+            } else {
+                elm.scrollTo(elm.scrollX, value);
+            }
+            return this;
+        }
+    }
+
+    function scrollBy(elm, x, y) {
+        elm.scrollLeft += x;
+        elm.scrollTop += y;
+    }
+
+
+    /*
+     * Get or set the size of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {PlainObject}dimension
+     */
+    function size(elm, dimension) {
+        if (dimension == undefined) {
+            if (langx.isWindow(elm)) {
+                return {
+                    width: elm.innerWidth,
+                    height: elm.innerHeight
+                }
+
+            } else if (langx.isDocument(elm)) {
+                return getDocumentSize(document);
+            } else {
+                return {
+                    width: elm.offsetWidth,
+                    height: elm.offsetHeight
+                }
+            }
+        } else {
+            var isBorderBox = (styler.css(elm, "box-sizing") === "border-box"),
+                props = {
+                    width: dimension.width,
+                    height: dimension.height
+                };
+            if (!isBorderBox) {
+                var pex = paddingExtents(elm),
+                    bex = borderExtents(elm);
+
+                if (props.width !== undefined && props.width !== "" && props.width !== null) {
+                    props.width = props.width - pex.left - pex.right - bex.left - bex.right;
+                }
+
+                if (props.height !== undefined && props.height !== "" && props.height !== null) {
+                    props.height = props.height - pex.top - pex.bottom - bex.top - bex.bottom;
+                }
+            }
+            styler.css(elm, props);
+            return this;
+        }
+    }
+    /*
+     * Get or set the size of the specified element border box.
+     * @param {HTMLElement} elm
+     * @param {Number} value
+     */
+    function width(elm, value) {
+        if (value == undefined) {
+            return size(elm).width;
+        } else {
+            size(elm, {
+                width: value
+            });
+            return this;
+        }
+    }
+
+    function testAxis(elm) {
+       
+        var top = elm.offsetTop;
+        var left = elm.offsetLeft;
+        var width = elm.offsetWidth;
+        var height = elm.offsetHeight;
+
+        while(elm.offsetParent) {
+            elm = elm.offsetParent;
+            top += elm.offsetTop;
+            left += elm.offsetLeft;
+        }
+
+        var result = {x: 0, y: 0};
+
+        //Over the top of the window
+        if(top < window.pageYOffset) {
+            result.y = top - window.pageYOffset;
+        }
+        //Bellow the window
+        else if((top + height) > (window.pageYOffset + window.innerHeight))
+        {
+            result.y = (top + height) - (window.pageYOffset + window.innerHeight);
+        }
+
+        //Left to the window
+        if(left < window.pageXOffset) {
+            result.x = left - window.pageXOffset;
+        }
+        //Right to the window
+        else if((left + width) > (window.pageXOffset + window.innerWidth))
+        {
+            result.x = (left + width) - (window.pageXOffset + window.innerWidth);
+        }
+
+        return result;
+    };    
+
+    function geom() {
+        return geom;
+    }
+
+    langx.mixin(geom, {
+        borderExtents: borderExtents,
+        //viewport coordinate
+        boundingPosition: boundingPosition,
+
+        boundingRect: boundingRect,
+
+        clientHeight: clientHeight,
+
+        clientSize: clientSize,
+
+        clientWidth: clientWidth,
+
+        contentRect: contentRect,
+
+        getDocumentSize: getDocumentSize,
+
+        height: height,
+
+        marginExtents: marginExtents,
+
+        marginRect: marginRect,
+
+        marginSize: marginSize,
+
+        offsetParent: offsetParent,
+
+        paddingExtents: paddingExtents,
+
+        //coordinate to the document
+        pagePosition: pagePosition,
+
+        pageRect: pageRect,
+
+        // coordinate relative to it's parent
+        relativePosition: relativePosition,
+
+        relativeRect: relativeRect,
+
+        scrollbarWidth: scrollbarWidth,
+
+        scrollIntoView: scrollIntoView,
+
+        scrollLeft: scrollLeft,
+
+        scrollTop: scrollTop,
+
+        scrollBy,
+            
+        size: size,
+
+        testAxis,
+
+        width: width
+    });
+
+    ( function() {
+        var max = Math.max,
+            abs = Math.abs,
+            rhorizontal = /left|center|right/,
+            rvertical = /top|center|bottom/,
+            roffset = /[\+\-]\d+(\.[\d]+)?%?/,
+            rposition = /^\w+/,
+            rpercent = /%$/;
+
+        function getOffsets( offsets, width, height ) {
+            return [
+                parseFloat( offsets[ 0 ] ) * ( rpercent.test( offsets[ 0 ] ) ? width / 100 : 1 ),
+                parseFloat( offsets[ 1 ] ) * ( rpercent.test( offsets[ 1 ] ) ? height / 100 : 1 )
+            ];
+        }
+
+        function parseCss( element, property ) {
+            return parseInt( styler.css( element, property ), 10 ) || 0;
+        }
+
+        function getDimensions( raw ) {
+            if ( raw.nodeType === 9 ) {
+                return {
+                    size: size(raw),
+                    offset: { top: 0, left: 0 }
+                };
+            }
+            if ( noder.isWindow( raw ) ) {
+                return {
+                    size: size(raw),
+                    offset: { 
+                        top: scrollTop(raw), 
+                        left: scrollLeft(raw) 
+                    }
+                };
+            }
+            if ( raw.preventDefault ) {
+                return {
+                    size : {
+                        width: 0,
+                        height: 0
+                    },
+                    offset: { 
+                        top: raw.pageY, 
+                        left: raw.pageX 
+                    }
+                };
+            }
+            return {
+                size: size(raw),
+                offset: pagePosition(raw)
+            };
+        }
+
+        function getScrollInfo( within ) {
+            var overflowX = within.isWindow || within.isDocument ? "" :
+                    styler.css(within.element,"overflow-x" ),
+                overflowY = within.isWindow || within.isDocument ? "" :
+                    styler.css(within.element,"overflow-y" ),
+                hasOverflowX = overflowX === "scroll" ||
+                    ( overflowX === "auto" && within.width < scrollWidth(within.element) ),
+                hasOverflowY = overflowY === "scroll" ||
+                    ( overflowY === "auto" && within.height < scrollHeight(within.element));
+            return {
+                width: hasOverflowY ? scrollbarWidth() : 0,
+                height: hasOverflowX ? scrollbarWidth() : 0
+            };
+        }
+
+        function getWithinInfo( element ) {
+            var withinElement = element || window,
+                isWindow = noder.isWindow( withinElement),
+                isDocument = !!withinElement && withinElement.nodeType === 9,
+                hasOffset = !isWindow && !isDocument,
+                msize = marginSize(withinElement);
+            return {
+                element: withinElement,
+                isWindow: isWindow,
+                isDocument: isDocument,
+                offset: hasOffset ? pagePosition(element) : { left: 0, top: 0 },
+                scrollLeft: scrollLeft(withinElement),
+                scrollTop: scrollTop(withinElement),
+                width: msize.width,
+                height: msize.height
+            };
+        }
+
+        function posit(elm,options ) {
+            // Make a copy, we don't want to modify arguments
+            options = langx.extend( {}, options );
+
+            var atOffset, targetWidth, targetHeight, targetOffset, basePosition, dimensions,
+                target = options.of,
+                within = getWithinInfo( options.within ),
+                scrollInfo = getScrollInfo( within ),
+                collision = ( options.collision || "flip" ).split( " " ),
+                offsets = {};
+
+            dimensions = getDimensions( target );
+            if ( target.preventDefault ) {
+
+                // Force left top to allow flipping
+                options.at = "left top";
+            }
+            targetWidth = dimensions.size.width;
+            targetHeight = dimensions.size.height;
+            targetOffset = dimensions.offset;
+
+            // Clone to reuse original targetOffset later
+            basePosition = langx.extend( {}, targetOffset );
+
+            // Force my and at to have valid horizontal and vertical positions
+            // if a value is missing or invalid, it will be converted to center
+            langx.each( [ "my", "at" ], function() {
+                var pos = ( options[ this ] || "" ).split( " " ),
+                    horizontalOffset,
+                    verticalOffset;
+
+                if ( pos.length === 1 ) {
+                    pos = rhorizontal.test( pos[ 0 ] ) ?
+                        pos.concat( [ "center" ] ) :
+                        rvertical.test( pos[ 0 ] ) ?
+                            [ "center" ].concat( pos ) :
+                            [ "center", "center" ];
+                }
+                pos[ 0 ] = rhorizontal.test( pos[ 0 ] ) ? pos[ 0 ] : "center";
+                pos[ 1 ] = rvertical.test( pos[ 1 ] ) ? pos[ 1 ] : "center";
+
+                // Calculate offsets
+                horizontalOffset = roffset.exec( pos[ 0 ] );
+                verticalOffset = roffset.exec( pos[ 1 ] );
+                offsets[ this ] = [
+                    horizontalOffset ? horizontalOffset[ 0 ] : 0,
+                    verticalOffset ? verticalOffset[ 0 ] : 0
+                ];
+
+                // Reduce to just the positions without the offsets
+                options[ this ] = [
+                    rposition.exec( pos[ 0 ] )[ 0 ],
+                    rposition.exec( pos[ 1 ] )[ 0 ]
+                ];
+            } );
+
+            // Normalize collision option
+            if ( collision.length === 1 ) {
+                collision[ 1 ] = collision[ 0 ];
+            }
+
+            if ( options.at[ 0 ] === "right" ) {
+                basePosition.left += targetWidth;
+            } else if ( options.at[ 0 ] === "center" ) {
+                basePosition.left += targetWidth / 2;
+            }
+
+            if ( options.at[ 1 ] === "bottom" ) {
+                basePosition.top += targetHeight;
+            } else if ( options.at[ 1 ] === "center" ) {
+                basePosition.top += targetHeight / 2;
+            }
+
+            atOffset = getOffsets( offsets.at, targetWidth, targetHeight );
+            basePosition.left += atOffset[ 0 ];
+            basePosition.top += atOffset[ 1 ];
+
+            return ( function(elem) {
+                var collisionPosition, using,
+                    msize = marginSize(elem),
+                    elemWidth = msize.width,
+                    elemHeight = msize.height,
+                    marginLeft = parseCss( elem, "marginLeft" ),
+                    marginTop = parseCss( elem, "marginTop" ),
+                    collisionWidth = elemWidth + marginLeft + parseCss( elem, "marginRight" ) +
+                        scrollInfo.width,
+                    collisionHeight = elemHeight + marginTop + parseCss( elem, "marginBottom" ) +
+                        scrollInfo.height,
+                    position = langx.extend( {}, basePosition ),
+                    myOffset = getOffsets( offsets.my, msize.width, msize.height);
+
+                if ( options.my[ 0 ] === "right" ) {
+                    position.left -= elemWidth;
+                } else if ( options.my[ 0 ] === "center" ) {
+                    position.left -= elemWidth / 2;
+                }
+
+                if ( options.my[ 1 ] === "bottom" ) {
+                    position.top -= elemHeight;
+                } else if ( options.my[ 1 ] === "center" ) {
+                    position.top -= elemHeight / 2;
+                }
+
+                position.left += myOffset[ 0 ];
+                position.top += myOffset[ 1 ];
+
+                collisionPosition = {
+                    marginLeft: marginLeft,
+                    marginTop: marginTop
+                };
+
+                langx.each( [ "left", "top" ], function( i, dir ) {
+                    if ( positions[ collision[ i ] ] ) {
+                        positions[ collision[ i ] ][ dir ]( position, {
+                            targetWidth: targetWidth,
+                            targetHeight: targetHeight,
+                            elemWidth: elemWidth,
+                            elemHeight: elemHeight,
+                            collisionPosition: collisionPosition,
+                            collisionWidth: collisionWidth,
+                            collisionHeight: collisionHeight,
+                            offset: [ atOffset[ 0 ] + myOffset[ 0 ], atOffset [ 1 ] + myOffset[ 1 ] ],
+                            my: options.my,
+                            at: options.at,
+                            within: within,
+                            elem: elem
+                        } );
+                    }
+                } );
+
+                if ( options.using ) {
+
+                    // Adds feedback as second argument to using callback, if present
+                    using = function( props ) {
+                        var left = targetOffset.left - position.left,
+                            right = left + targetWidth - elemWidth,
+                            top = targetOffset.top - position.top,
+                            bottom = top + targetHeight - elemHeight,
+                            feedback = {
+                                target: {
+                                    element: target,
+                                    left: targetOffset.left,
+                                    top: targetOffset.top,
+                                    width: targetWidth,
+                                    height: targetHeight
+                                },
+                                element: {
+                                    element: elem,
+                                    left: position.left,
+                                    top: position.top,
+                                    width: elemWidth,
+                                    height: elemHeight
+                                },
+                                horizontal: right < 0 ? "left" : left > 0 ? "right" : "center",
+                                vertical: bottom < 0 ? "top" : top > 0 ? "bottom" : "middle"
+                            };
+                        if ( targetWidth < elemWidth && abs( left + right ) < targetWidth ) {
+                            feedback.horizontal = "center";
+                        }
+                        if ( targetHeight < elemHeight && abs( top + bottom ) < targetHeight ) {
+                            feedback.vertical = "middle";
+                        }
+                        if ( max( abs( left ), abs( right ) ) > max( abs( top ), abs( bottom ) ) ) {
+                            feedback.important = "horizontal";
+                        } else {
+                            feedback.important = "vertical";
+                        }
+                        options.using.call( this, props, feedback );
+                    };
+                }
+
+                pagePosition(elem, langx.extend( position, { using: using } ));
+            })(elm);
+        }
+
+        var positions = {
+            fit: {
+                left: function( position, data ) {
+                    var within = data.within,
+                        withinOffset = within.isWindow ? within.scrollLeft : within.offset.left,
+                        outerWidth = within.width,
+                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
+                        overLeft = withinOffset - collisionPosLeft,
+                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - withinOffset,
+                        newOverRight;
+
+                    // Element is wider than within
+                    if ( data.collisionWidth > outerWidth ) {
+
+                        // Element is initially over the left side of within
+                        if ( overLeft > 0 && overRight <= 0 ) {
+                            newOverRight = position.left + overLeft + data.collisionWidth - outerWidth -
+                                withinOffset;
+                            position.left += overLeft - newOverRight;
+
+                        // Element is initially over right side of within
+                        } else if ( overRight > 0 && overLeft <= 0 ) {
+                            position.left = withinOffset;
+
+                        // Element is initially over both left and right sides of within
+                        } else {
+                            if ( overLeft > overRight ) {
+                                position.left = withinOffset + outerWidth - data.collisionWidth;
+                            } else {
+                                position.left = withinOffset;
+                            }
+                        }
+
+                    // Too far left -> align with left edge
+                    } else if ( overLeft > 0 ) {
+                        position.left += overLeft;
+
+                    // Too far right -> align with right edge
+                    } else if ( overRight > 0 ) {
+                        position.left -= overRight;
+
+                    // Adjust based on position and margin
+                    } else {
+                        position.left = max( position.left - collisionPosLeft, position.left );
+                    }
+                },
+                top: function( position, data ) {
+                    var within = data.within,
+                        withinOffset = within.isWindow ? within.scrollTop : within.offset.top,
+                        outerHeight = data.within.height,
+                        collisionPosTop = position.top - data.collisionPosition.marginTop,
+                        overTop = withinOffset - collisionPosTop,
+                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - withinOffset,
+                        newOverBottom;
+
+                    // Element is taller than within
+                    if ( data.collisionHeight > outerHeight ) {
+
+                        // Element is initially over the top of within
+                        if ( overTop > 0 && overBottom <= 0 ) {
+                            newOverBottom = position.top + overTop + data.collisionHeight - outerHeight -
+                                withinOffset;
+                            position.top += overTop - newOverBottom;
+
+                        // Element is initially over bottom of within
+                        } else if ( overBottom > 0 && overTop <= 0 ) {
+                            position.top = withinOffset;
+
+                        // Element is initially over both top and bottom of within
+                        } else {
+                            if ( overTop > overBottom ) {
+                                position.top = withinOffset + outerHeight - data.collisionHeight;
+                            } else {
+                                position.top = withinOffset;
+                            }
+                        }
+
+                    // Too far up -> align with top
+                    } else if ( overTop > 0 ) {
+                        position.top += overTop;
+
+                    // Too far down -> align with bottom edge
+                    } else if ( overBottom > 0 ) {
+                        position.top -= overBottom;
+
+                    // Adjust based on position and margin
+                    } else {
+                        position.top = max( position.top - collisionPosTop, position.top );
+                    }
+                }
+            },
+            flip: {
+                left: function( position, data ) {
+                    var within = data.within,
+                        withinOffset = within.offset.left + within.scrollLeft,
+                        outerWidth = within.width,
+                        offsetLeft = within.isWindow ? within.scrollLeft : within.offset.left,
+                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
+                        overLeft = collisionPosLeft - offsetLeft,
+                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - offsetLeft,
+                        myOffset = data.my[ 0 ] === "left" ?
+                            -data.elemWidth :
+                            data.my[ 0 ] === "right" ?
+                                data.elemWidth :
+                                0,
+                        atOffset = data.at[ 0 ] === "left" ?
+                            data.targetWidth :
+                            data.at[ 0 ] === "right" ?
+                                -data.targetWidth :
+                                0,
+                        offset = -2 * data.offset[ 0 ],
+                        newOverRight,
+                        newOverLeft;
+
+                    if ( overLeft < 0 ) {
+                        newOverRight = position.left + myOffset + atOffset + offset + data.collisionWidth -
+                            outerWidth - withinOffset;
+                        if ( newOverRight < 0 || newOverRight < abs( overLeft ) ) {
+                            position.left += myOffset + atOffset + offset;
+                        }
+                    } else if ( overRight > 0 ) {
+                        newOverLeft = position.left - data.collisionPosition.marginLeft + myOffset +
+                            atOffset + offset - offsetLeft;
+                        if ( newOverLeft > 0 || abs( newOverLeft ) < overRight ) {
+                            position.left += myOffset + atOffset + offset;
+                        }
+                    }
+                },
+                top: function( position, data ) {
+                    var within = data.within,
+                        withinOffset = within.offset.top + within.scrollTop,
+                        outerHeight = within.height,
+                        offsetTop = within.isWindow ? within.scrollTop : within.offset.top,
+                        collisionPosTop = position.top - data.collisionPosition.marginTop,
+                        overTop = collisionPosTop - offsetTop,
+                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - offsetTop,
+                        top = data.my[ 1 ] === "top",
+                        myOffset = top ?
+                            -data.elemHeight :
+                            data.my[ 1 ] === "bottom" ?
+                                data.elemHeight :
+                                0,
+                        atOffset = data.at[ 1 ] === "top" ?
+                            data.targetHeight :
+                            data.at[ 1 ] === "bottom" ?
+                                -data.targetHeight :
+                                0,
+                        offset = -2 * data.offset[ 1 ],
+                        newOverTop,
+                        newOverBottom;
+                    if ( overTop < 0 ) {
+                        newOverBottom = position.top + myOffset + atOffset + offset + data.collisionHeight -
+                            outerHeight - withinOffset;
+                        if ( newOverBottom < 0 || newOverBottom < abs( overTop ) ) {
+                            position.top += myOffset + atOffset + offset;
+                        }
+                    } else if ( overBottom > 0 ) {
+                        newOverTop = position.top - data.collisionPosition.marginTop + myOffset + atOffset +
+                            offset - offsetTop;
+                        if ( newOverTop > 0 || abs( newOverTop ) < overBottom ) {
+                            position.top += myOffset + atOffset + offset;
+                        }
+                    }
+                }
+            },
+            flipfit: {
+                left: function() {
+                    positions.flip.left.apply( this, arguments );
+                    positions.fit.left.apply( this, arguments );
+                },
+                top: function() {
+                    positions.flip.top.apply( this, arguments );
+                    positions.fit.top.apply( this, arguments );
+                }
+            }
+        };
+
+        geom.posit = posit;
+    })();
+
+    return skylark.attach("domx.geom", geom);
+});
 define('skylark-domx-finder/finder',[
     "skylark-langx/skylark",
     "skylark-langx/langx",
     "skylark-domx-browser",
-    "skylark-domx-noder"
-], function(skylark, langx, browser, noder) {
+    "skylark-domx-noder",
+    "skylark-domx-styler"
+], function(skylark, langx, browser, noder,styler) {
     var local = {},
         filter = Array.prototype.filter,
         slice = Array.prototype.slice,
@@ -5893,7 +13733,7 @@ define('skylark-domx-finder/finder',[
          * @param {Object} elm
          */
         'parent': function(elm) {
-            return !!elm.parentNode;
+            return !!elm.parentElement;
         },
 
         'selected': function(elm) {
@@ -6284,7 +14124,7 @@ define('skylark-domx-finder/finder',[
      */
     function ancestor(node, selector, root) {
         var rootIsSelector = root && langx.isString(root);
-        while (node = node.parentNode) {
+        while (node = node.parentElement) {
             if (matches(node, selector)) {
                 return node;
             }
@@ -6310,7 +14150,7 @@ define('skylark-domx-finder/finder',[
     function ancestors(node, selector, root) {
         var ret = [],
             rootIsSelector = root && langx.isString(root);
-        while ((node = node.parentNode) && (node.nodeType !== 9)) {
+        while ((node = node.parentElement) && (node.nodeType !== 9)) {
             if (root) {
                 if (rootIsSelector) {
                     if (matches(node, root)) {
@@ -6365,14 +14205,81 @@ define('skylark-domx-finder/finder',[
         return ret;
     }
 
-    function closest(node, selector) {
-        while (node && !(matches(node, selector))) {
-            node = node.parentNode;
-        }
 
-        return node;
+
+    /**
+     * Gets nth child of elm, ignoring hidden children, sortable's elements (does not ignore clone if it's visible)
+     * and non-draggable elements
+     * @param  {HTMLElement} elm       The parent element
+     * @param  {Number} idx      The index of the child
+     * @param  {Object} options       Parent's options
+     * @return {HTMLElement}          The child at index idx, or null if not found
+     */
+    function childAt(elm, idx, options) {
+        var currentChild = 0,
+            children = elm.children;
+
+        options = langx.mixin({
+            ignoreHidden : true,
+            excluding : null,
+            closesting : null
+        },options);
+
+        for(var i=0;i < children.length;i++) {
+            var child = children[i];
+            if (options.ignoreHidden && styler.css(child) === "none") {
+                continue;
+            }
+            if (options.excluding && options.excluding.includes(child)) {
+                continue;
+            }
+
+            if (options.closesting &&  !closest(child, options.closesting, elm, false)) {
+                continue;
+            }
+
+            if (currentChild === idx) {
+                return child;
+            }
+            currentChild++;
+        }
+        return null;
     }
 
+
+
+    //function closest(node, selector) {
+    //    while (node && !(matches(node, selector))) {
+    //        node = node.parentElement;
+    //    }
+    //   return node;
+    //}
+
+
+    function closest(/**HTMLElement*/elm, /**String*/selector, /**HTMLElement*/ctx, includeCTX) {
+        if (elm) {
+            ctx = ctx || document;
+
+            do {
+                if (
+                    selector != null &&
+                    (
+                        selector[0] === '>' ?
+                        elm.parentElement === ctx && matches(elm, selector) :
+                        matches(elm, selector)
+                    ) ||
+                    includeCTX && elm === ctx
+                ) {
+                    return elm;
+                }
+
+                if (elm === ctx) break;
+                /* jshint boss:true */
+            } while (elm = parent(elm));
+        }
+
+        return null;
+    }
     /*
      * Get the decendant of the specified element , optionally filtered by a selector.
      * @param {HTMLElement} elm
@@ -6461,6 +14368,37 @@ define('skylark-domx-finder/finder',[
 
         return null;
     }
+
+
+    /**
+     * Returns the index of an element within its parent for a selected set of
+     * elements
+     * @param  {HTMLElement} el
+     * @param  {selector} selector
+     * @return {number}
+     */
+    function index(el, selector) {
+        var index = 0;
+
+        if (!el || !el.parentNode) {
+            return -1;
+        }
+
+        while (el && (el = el.previousElementSibling)) {
+            if (langx.isString(selector)) {
+                if (matches(el, selector)) {
+                    index++;
+                }
+            } else if (langx.isFunction(selector)) {
+                if (selector(el)) {
+                    index++;
+                }
+            }
+            index++;
+        }
+
+        return index;
+    }    
 
     /*
      * Get the last child of the specified element , optionally filtered by a selector.
@@ -6560,7 +14498,8 @@ define('skylark-domx-finder/finder',[
      * @param {String optionlly} selector
      */
     function parent(elm, selector) {
-        var node = elm.parentNode;
+        var node = (elm.host && elm !== document && elm.host.nodeType) ? elm.host : elm.parentElement;
+
         if (node && (!selector || matches(node, selector))) {
             return node;
         }
@@ -6615,7 +14554,7 @@ define('skylark-domx-finder/finder',[
      * @param {String optionlly} selector
      */
     function siblings(elm, selector) {
-        var node = elm.parentNode.firstChild,
+        var node = elm.parentElement.firstChild,
             ret = [];
         while (node) {
             if (node.nodeType == 1 && node !== elm) {
@@ -6640,6 +14579,8 @@ define('skylark-domx-finder/finder',[
 
         byId: byId,
 
+        childAt: childAt,
+
         children: children,
 
         closest: closest,
@@ -6653,6 +14594,8 @@ define('skylark-domx-finder/finder',[
         findAll: findAll,
 
         firstChild: firstChild,
+
+        index,
 
         lastChild: lastChild,
 
@@ -6883,6 +14826,7 @@ define('skylark-domx-query/query',[
         }
     }
 
+
     var NodeList = langx.klass({
         klassName: "SkNodeList",
         init: function(selector, context) {
@@ -6929,7 +14873,7 @@ define('skylark-domx-query/query',[
                         nodes = finder.descendants(context, selector);
                     }
                 } else {
-                    if (selector !== window && isArrayLike(selector)) {
+                    if (!noder.isWindow(selector) && isArrayLike(selector)) {
                         // a dom node array is expected
                         nodes = selector;
                     } else {
@@ -7553,9 +15497,40 @@ define('skylark-domx-query/query',[
 
 });
 define('skylark-domx-query/main',[
-	"./query"
-],function(query){
-	return query;
+	"./query",
+	"skylark-domx-styler"
+],function($,styler){
+
+    $.fn.style = $.wraps.wrapper_name_value(styler.css, styler);
+
+    $.fn.css = $.wraps.wrapper_name_value(styler.css, styler);
+
+    //hasClass(name)
+    $.fn.hasClass = $.wraps.wrapper_some_chk(styler.hasClass, styler);
+
+    //addClass(name)
+    $.fn.addClass = $.wraps.wrapper_every_act_firstArgFunc(styler.addClass, styler, styler.className);
+
+    //removeClass(name)
+    $.fn.removeClass = $.wraps.wrapper_every_act_firstArgFunc(styler.removeClass, styler, styler.className);
+
+    //toogleClass(name,when)
+    $.fn.toggleClass = $.wraps.wrapper_every_act_firstArgFunc(styler.toggleClass, styler, styler.className);
+
+    $.fn.replaceClass = function(newClass, oldClass) {
+        this.removeClass(oldClass);
+        this.addClass(newClass);
+        return this;
+    };
+
+    $.fn.replaceClass = function(newClass, oldClass) {
+        this.removeClass(oldClass);
+        this.addClass(newClass);
+        return this;
+    };
+        
+
+	return $;
 });
 define('skylark-domx-query', ['skylark-domx-query/main'], function (main) { return main; });
 
@@ -7662,11 +15637,15 @@ define('skylark-domx-velm/velm',[
             VisualElement.partial(props);
         },
 
-        delegate: function(names, context) {
+        delegate: function(names, context,matching) {
             var props = {};
 
             names.forEach(function(name) {
-                props[name] = _delegator(context[name], context);
+                var matchedName = name;
+                if (matching && matching[name]) {
+                    matchedName = matching[name];
+                } 
+                props[name] = _delegator(context[matchedName], context);
             });
 
             VisualElement.partial(props);
@@ -7736,18 +15715,9 @@ define('skylark-domx-velm/velm',[
     return skylark.attach("domx.velm", velm);
 });
 define('skylark-domx-velm/main',[
-	"./velm"
-],function(velm){
-	return velm;
-});
-define('skylark-domx-velm', ['skylark-domx-velm/main'], function (main) { return main; });
-
-define('skylark-domx-styler/main',[
-	"./styler",
-	"skylark-domx-velm",
-	"skylark-domx-query"	
-],function(styler,velm,$){
-	
+	"./velm",
+	"skylark-domx-styler"
+],function(velm,styler){
     // from ./styler
     velm.delegate([
         "addClass",
@@ -7781,1207 +15751,10 @@ define('skylark-domx-styler/main',[
 
     });
 
-
-    $.fn.style = $.wraps.wrapper_name_value(styler.css, styler);
-
-    $.fn.css = $.wraps.wrapper_name_value(styler.css, styler);
-
-    //hasClass(name)
-    $.fn.hasClass = $.wraps.wrapper_some_chk(styler.hasClass, styler);
-
-    //addClass(name)
-    $.fn.addClass = $.wraps.wrapper_every_act_firstArgFunc(styler.addClass, styler, styler.className);
-
-    //removeClass(name)
-    $.fn.removeClass = $.wraps.wrapper_every_act_firstArgFunc(styler.removeClass, styler, styler.className);
-
-    //toogleClass(name,when)
-    $.fn.toggleClass = $.wraps.wrapper_every_act_firstArgFunc(styler.toggleClass, styler, styler.className);
-
-    $.fn.replaceClass = function(newClass, oldClass) {
-        this.removeClass(oldClass);
-        this.addClass(newClass);
-        return this;
-    };
-
-    $.fn.replaceClass = function(newClass, oldClass) {
-        this.removeClass(oldClass);
-        this.addClass(newClass);
-        return this;
-    };
-        
-	return styler;
+	return velm;
 });
-define('skylark-domx-styler', ['skylark-domx-styler/main'], function (main) { return main; });
+define('skylark-domx-velm', ['skylark-domx-velm/main'], function (main) { return main; });
 
-define('skylark-domx-geom/geom',[
-    "skylark-langx/skylark",
-    "skylark-langx/langx",
-    "skylark-domx-noder",
-    "skylark-domx-styler"
-], function(skylark, langx, noder, styler) {
-    var rootNodeRE = /^(?:body|html)$/i,
-        px = langx.toPixel,
-        offsetParent = noder.offsetParent,
-        cachedScrollbarWidth;
-
-    function scrollbarWidth() {
-        if (cachedScrollbarWidth !== undefined) {
-            return cachedScrollbarWidth;
-        }
-        var w1, w2,
-            div = noder.createFragment("<div style=" +
-                "'display:block;position:absolute;width:200px;height:200px;overflow:hidden;'>" +
-                "<div style='height:300px;width:auto;'></div></div>")[0],
-            innerDiv = div.childNodes[0];
-
-        noder.append(document.body, div);
-
-        w1 = innerDiv.offsetWidth;
-
-        styler.css(div, "overflow", "scroll");
-
-        w2 = innerDiv.offsetWidth;
-
-        if (w1 === w2) {
-            w2 = div[0].clientWidth;
-        }
-
-        noder.remove(div);
-
-        return (cachedScrollbarWidth = w1 - w2);
-    }
-    /*
-     * Get the widths of each border of the specified element.
-     * @param {HTMLElement} elm
-     */
-    function borderExtents(elm) {
-        if (noder.isWindow(elm)) {
-            return {
-                left : 0,
-                top : 0,
-                right : 0,
-                bottom : 0
-            }
-        }        var s = getComputedStyle(elm);
-        return {
-            left: px(s.borderLeftWidth, elm),
-            top: px(s.borderTopWidth, elm),
-            right: px(s.borderRightWidth, elm),
-            bottom: px(s.borderBottomWidth, elm)
-        }
-    }
-
-
-    //viewport coordinate
-    /*
-     * Get or set the viewport position of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    function boundingPosition(elm, coords) {
-        if (coords === undefined) {
-            return rootNodeRE.test(elm.nodeName) ? { top: 0, left: 0 } : elm.getBoundingClientRect();
-        } else {
-            var // Get *real* offsetParent
-                parent = offsetParent(elm),
-                // Get correct offsets
-                parentOffset = boundingPosition(parent),
-                mex = marginExtents(elm),
-                pbex = borderExtents(parent);
-
-            relativePosition(elm, {
-                top: coords.top - parentOffset.top - mex.top - pbex.top,
-                left: coords.left - parentOffset.left - mex.left - pbex.left
-            });
-            return this;
-        }
-    }
-
-
-    /*
-     * Get or set the viewport rect of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    function boundingRect(elm, coords) {
-        if (coords === undefined) {
-            return elm.getBoundingClientRect()
-        } else {
-            boundingPosition(elm, coords);
-            size(elm, coords);
-            return this;
-        }
-    }
-
-    /*
-     * Get or set the height of the specified element client box.
-     * @param {HTMLElement} elm
-     * @param {Number} value
-     */
-    function clientHeight(elm, value) {
-        if (value == undefined) {
-            return clientSize(elm).height;
-        } else {
-            return clientSize(elm, {
-                height: value
-            });
-        }
-    }
-
-    /*
-     * Get or set the size of the specified element client box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} dimension
-     */
-    function clientSize(elm, dimension) {
-        if (dimension == undefined) {
-            return {
-                width: elm.clientWidth,
-                height: elm.clientHeight
-            }
-        } else {
-            var isBorderBox = (styler.css(elm, "box-sizing") === "border-box"),
-                props = {
-                    width: dimension.width,
-                    height: dimension.height
-                };
-            if (!isBorderBox) {
-                var pex = paddingExtents(elm);
-
-                if (props.width !== undefined) {
-                    props.width = props.width - pex.left - pex.right;
-                }
-
-                if (props.height !== undefined) {
-                    props.height = props.height - pex.top - pex.bottom;
-                }
-            } else {
-                var bex = borderExtents(elm);
-
-                if (props.width !== undefined) {
-                    props.width = props.width + bex.left + bex.right;
-                }
-
-                if (props.height !== undefined) {
-                    props.height = props.height + bex.top + bex.bottom;
-                }
-
-            }
-            styler.css(elm, props);
-            return this;
-        }
-        return {
-            width: elm.clientWidth,
-            height: elm.clientHeight
-        };
-    }
-
-    /*
-     * Get or set the width of the specified element client box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} dimension
-     */
-    function clientWidth(elm, value) {
-        if (value == undefined) {
-            return clientSize(elm).width;
-        } else {
-            clientSize(elm, {
-                width: value
-            });
-            return this;
-        }
-    }
-
-    /*
-     * Get the rect of the specified element content box.
-     * @param {HTMLElement} elm
-     */
-    function contentRect(elm) {
-        var cs = clientSize(elm),
-            pex = paddingExtents(elm);
-
-
-        //// On Opera, offsetLeft includes the parent's border
-        //if(has("opera")){
-        //    pe.l += be.l;
-        //    pe.t += be.t;
-        //}
-        return {
-            left: pex.left,
-            top: pex.top,
-            width: cs.width - pex.left - pex.right,
-            height: cs.height - pex.top - pex.bottom
-        };
-    }
-
-
-    function fullCover(elem, hor, vert) {
-        let vertical = vert;
-        let horizontal = hor;
-        if (langx.isUndefined(horizontal)) {
-            horizontal = true;
-        }
-        if (langx.isUndefined(vertical)) {
-            vertical = true;
-        }
-        elem.style.position = 'absolute';
-        if (horizontal) {
-            elem.style.left = 0;
-            elem.style.right = 0;
-        }
-        if (vertical) {
-            elem.style.top = 0;
-            elem.style.bottom = 0;
-        }
-    }
-
-    /*
-     * Get the document size.
-     * @param {HTMLDocument} doc
-     */
-    function getDocumentSize(doc) {
-        var documentElement = doc.documentElement,
-            body = doc.body,
-            max = Math.max,
-            scrollWidth = max(documentElement.scrollWidth, body.scrollWidth),
-            clientWidth = max(documentElement.clientWidth, body.clientWidth),
-            offsetWidth = max(documentElement.offsetWidth, body.offsetWidth),
-            scrollHeight = max(documentElement.scrollHeight, body.scrollHeight),
-            clientHeight = max(documentElement.clientHeight, body.clientHeight),
-            offsetHeight = max(documentElement.offsetHeight, body.offsetHeight);
-
-        return {
-            width: scrollWidth < offsetWidth ? clientWidth : scrollWidth,
-            height: scrollHeight < offsetHeight ? clientHeight : scrollHeight
-        };
-    }
-
-    /*
-     * Get the document size.
-     * @param {HTMLElement} elm
-     * @param {Number} value
-     */
-    function height(elm, value) {
-        if (value == undefined) {
-            return size(elm).height;
-        } else {
-            size(elm, {
-                height: value
-            });
-            return this;
-        }
-    }
-
-    /**
-     * Check if a DOM element in completely visible in the viewport
-     *
-     * @method isVisible
-     * @param {DOM} elm DOM element to test.
-     * @return {Boolean} True if the element is inside of the browser viewport.
-     */
-    function isVisible(elm)   {
-        var top = elm.offsetTop;
-        var left = elm.offsetLeft;
-        var width = elm.offsetWidth;
-        var height = elm.offsetHeight;
-
-        while(elm.offsetParent)  {
-            elm = elm.offsetParent;
-            top += elm.offsetTop;
-            left += elm.offsetLeft;
-        }
-
-        return value = top >= window.pageYOffset && 
-                       left >= window.pageXOffset && 
-                       (top + height) <= (window.pageYOffset + window.innerHeight) && 
-                       (left + width) <= (window.pageXOffset + window.innerWidth);
-    }
-
-    /*
-     * Get the widths of each margin of the specified element.
-     * @param {HTMLElement} elm
-     */
-    function marginExtents(elm) {
-        if (noder.isWindow(elm)) {
-            return {
-                left : 0,
-                top : 0,
-                right : 0,
-                bottom : 0
-            }
-        }
-        var s = getComputedStyle(elm);
-        return {
-            left: px(s.marginLeft),
-            top: px(s.marginTop),
-            right: px(s.marginRight),
-            bottom: px(s.marginBottom),
-        }
-    }
-
-
-    function marginRect(elm) {
-        var obj = relativeRect(elm),
-            me = marginExtents(elm);
-
-        return {
-            left: obj.left,
-            top: obj.top,
-            width: obj.width + me.left + me.right,
-            height: obj.height + me.top + me.bottom
-        };
-    }
-
-
-    function marginSize(elm) {
-        var obj = size(elm),
-            me = marginExtents(elm);
-
-        return {
-            width: obj.width + me.left + me.right,
-            height: obj.height + me.top + me.bottom
-        };
-    }
-
-    /*
-     * Get the widths of each padding of the specified element.
-     * @param {HTMLElement} elm
-     */
-    function paddingExtents(elm) {
-        if (noder.isWindow(elm)) {
-            return {
-                left : 0,
-                top : 0,
-                right : 0,
-                bottom : 0
-            }
-        }
-        var s = getComputedStyle(elm);
-        return {
-            left: px(s.paddingLeft),
-            top: px(s.paddingTop),
-            right: px(s.paddingRight),
-            bottom: px(s.paddingBottom),
-        }
-    }
-
-    /*
-     * Get or set the document position of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    //coordinate to the document
-    function pagePosition(elm, coords) {
-        if (coords === undefined) {
-            var obj = elm.getBoundingClientRect()
-            return {
-                left: obj.left + window.pageXOffset,
-                top: obj.top + window.pageYOffset
-            }
-        } else {
-            var // Get *real* offsetParent
-                parent = offsetParent(elm),
-                // Get correct offsets
-                parentOffset = pagePosition(parent),
-                mex = marginExtents(elm),
-                pbex = borderExtents(parent);
-
-            relativePosition(elm, {
-                top: coords.top - parentOffset.top - mex.top - pbex.top,
-                left: coords.left - parentOffset.left - mex.left - pbex.left
-            });
-            return this;
-        }
-    }
-
-    /*
-     * Get or set the document rect of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    function pageRect(elm, coords) {
-        if (coords === undefined) {
-            var obj = elm.getBoundingClientRect()
-            return {
-                left: obj.left + window.pageXOffset,
-                top: obj.top + window.pageYOffset,
-                width: Math.round(obj.width),
-                height: Math.round(obj.height)
-            }
-        } else {
-            pagePosition(elm, coords);
-            size(elm, coords);
-            return this;
-        }
-    }
-
-    /*
-     * Get or set the position of the specified element border box , relative to parent element.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    // coordinate relative to it's parent
-    function relativePosition(elm, coords) {
-        if (coords == undefined) {
-            var // Get *real* offsetParent
-                parent = offsetParent(elm),
-                // Get correct offsets
-                offset = boundingPosition(elm),
-                parentOffset = boundingPosition(parent),
-                mex = marginExtents(elm),
-                pbex = borderExtents(parent);
-
-            // Subtract parent offsets and element margins
-            return {
-                top: offset.top - parentOffset.top - pbex.top, // - mex.top,
-                left: offset.left - parentOffset.left - pbex.left, // - mex.left
-            }
-        } else {
-            var props = {
-                top: coords.top,
-                left: coords.left
-            }
-
-            if (styler.css(elm, "position") == "static") {
-                props['position'] = "relative";
-            }
-            styler.css(elm, props);
-            return this;
-        }
-    }
-
-    /*
-     * Get or set the rect of the specified element border box , relatived to parent element.
-     * @param {HTMLElement} elm
-     * @param {PlainObject} coords
-     */
-    function relativeRect(elm, coords) {
-        if (coords === undefined) {
-            var // Get *real* offsetParent
-                parent = offsetParent(elm),
-                // Get correct offsets
-                offset = boundingRect(elm),
-                parentOffset = boundingPosition(parent),
-                mex = marginExtents(elm),
-                pbex = borderExtents(parent);
-
-            // Subtract parent offsets and element margins
-            return {
-                top: offset.top - parentOffset.top - pbex.top, // - mex.top,
-                left: offset.left - parentOffset.left - pbex.left, // - mex.left,
-                width: offset.width,
-                height: offset.height
-            }
-        } else {
-            relativePosition(elm, coords);
-            size(elm, coords);
-            return this;
-        }
-    }
-    /*
-     * Scroll the specified element into view.
-     * @param {HTMLElement} elm
-     * @param {} align
-     */
-    function scrollIntoView(elm, align) {
-        function getOffset(elm, rootElm) {
-            var x, y, parent = elm;
-
-            x = y = 0;
-            while (parent && parent != rootElm && parent.nodeType) {
-                x += parent.offsetLeft || 0;
-                y += parent.offsetTop || 0;
-                parent = parent.offsetParent;
-            }
-
-            return { x: x, y: y };
-        }
-
-        var parentElm = elm.parentNode;
-        var x, y, width, height, parentWidth, parentHeight;
-        var pos = getOffset(elm, parentElm);
-
-        x = pos.x;
-        y = pos.y;
-        width = elm.offsetWidth;
-        height = elm.offsetHeight;
-        parentWidth = parentElm.clientWidth;
-        parentHeight = parentElm.clientHeight;
-
-        if (align == "end") {
-            x -= parentWidth - width;
-            y -= parentHeight - height;
-        } else if (align == "center") {
-            x -= (parentWidth / 2) - (width / 2);
-            y -= (parentHeight / 2) - (height / 2);
-        }
-
-        parentElm.scrollLeft = x;
-        parentElm.scrollTop = y;
-
-        return this;
-    }
-    /*
-     * Get or set the current horizontal position of the scroll bar for the specified element.
-     * @param {HTMLElement} elm
-     * @param {Number} value
-     */
-    function scrollLeft(elm, value) {
-        if (elm.nodeType === 9) {
-            elm = elm.defaultView;
-        }
-        var hasScrollLeft = "scrollLeft" in elm;
-        if (value === undefined) {
-            return hasScrollLeft ? elm.scrollLeft : elm.pageXOffset
-        } else {
-            if (hasScrollLeft) {
-                elm.scrollLeft = value;
-            } else {
-                elm.scrollTo(value, elm.scrollY);
-            }
-            return this;
-        }
-    }
-    /*
-     * Get or the current vertical position of the scroll bar for the specified element.
-     * @param {HTMLElement} elm
-     * @param {Number} value
-     */
-    function scrollTop(elm, value) {
-        if (elm.nodeType === 9) {
-            elm = elm.defaultView;
-        }
-        var hasScrollTop = "scrollTop" in elm;
-
-        if (value === undefined) {
-            return hasScrollTop ? elm.scrollTop : elm.pageYOffset
-        } else {
-            if (hasScrollTop) {
-                elm.scrollTop = value;
-            } else {
-                elm.scrollTo(elm.scrollX, value);
-            }
-            return this;
-        }
-    }
-    /*
-     * Get or set the size of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {PlainObject}dimension
-     */
-    function size(elm, dimension) {
-        if (dimension == undefined) {
-            if (langx.isWindow(elm)) {
-                return {
-                    width: elm.innerWidth,
-                    height: elm.innerHeight
-                }
-
-            } else if (langx.isDocument(elm)) {
-                return getDocumentSize(document);
-            } else {
-                return {
-                    width: elm.offsetWidth,
-                    height: elm.offsetHeight
-                }
-            }
-        } else {
-            var isBorderBox = (styler.css(elm, "box-sizing") === "border-box"),
-                props = {
-                    width: dimension.width,
-                    height: dimension.height
-                };
-            if (!isBorderBox) {
-                var pex = paddingExtents(elm),
-                    bex = borderExtents(elm);
-
-                if (props.width !== undefined && props.width !== "" && props.width !== null) {
-                    props.width = props.width - pex.left - pex.right - bex.left - bex.right;
-                }
-
-                if (props.height !== undefined && props.height !== "" && props.height !== null) {
-                    props.height = props.height - pex.top - pex.bottom - bex.top - bex.bottom;
-                }
-            }
-            styler.css(elm, props);
-            return this;
-        }
-    }
-    /*
-     * Get or set the size of the specified element border box.
-     * @param {HTMLElement} elm
-     * @param {Number} value
-     */
-    function width(elm, value) {
-        if (value == undefined) {
-            return size(elm).width;
-        } else {
-            size(elm, {
-                width: value
-            });
-            return this;
-        }
-    }
-
-    /**
-     * Check if a DOM element is out of the window and how far it is, returns object with x and y values.
-     * 
-     * If the value is 0 the element is inside the window on that axis.
-     *
-     * @method testAxis
-     * @param {DOM} elm DOM element to test.
-     * @return {Vector2} Distance outside of the viewport.
-     */
-    function testAxis(elm) {
-        var top = elm.offsetTop;
-        var left = elm.offsetLeft;
-        var width = elm.offsetWidth;
-        var height = elm.offsetHeight;
-
-        while(elm.offsetParent) {
-            elm = elm.offsetParent;
-            top += elm.offsetTop;
-            left += elm.offsetLeft;
-        }
-
-        var result = {x: 0, y: 0};
-
-        //Over the top of the window
-        if(top < window.pageYOffset) {
-            result.y = top - window.pageYOffset;
-        }
-        //Bellow the window
-        else if((top + height) > (window.pageYOffset + window.innerHeight))
-        {
-            result.y = (top + height) - (window.pageYOffset + window.innerHeight);
-        }
-
-        //Left to the window
-        if(left < window.pageXOffset) {
-            result.x = left - window.pageXOffset;
-        }
-        //Right to the window
-        else if((left + width) > (window.pageXOffset + window.innerWidth))
-        {
-            result.x = (left + width) - (window.pageXOffset + window.innerWidth);
-        }
-
-        return result;
-    }
-
-
-    function geom() {
-        return geom;
-    }
-
-    langx.mixin(geom, {
-        borderExtents: borderExtents,
-        //viewport coordinate
-        boundingPosition: boundingPosition,
-
-        boundingRect: boundingRect,
-
-        clientHeight: clientHeight,
-
-        clientSize: clientSize,
-
-        clientWidth: clientWidth,
-
-        contentRect: contentRect,
-
-        fullCover,
-
-        getDocumentSize: getDocumentSize,
-
-        height: height,
-
-        isVisible,
-
-        marginExtents: marginExtents,
-
-        marginRect: marginRect,
-
-        marginSize: marginSize,
-
-        offsetParent: offsetParent,
-
-        paddingExtents: paddingExtents,
-
-        //coordinate to the document
-        pagePosition: pagePosition,
-
-        pageRect: pageRect,
-
-        // coordinate relative to it's parent
-        relativePosition: relativePosition,
-
-        relativeRect: relativeRect,
-
-        scrollbarWidth: scrollbarWidth,
-
-        scrollIntoView: scrollIntoView,
-
-        scrollLeft: scrollLeft,
-
-        scrollTop: scrollTop,
-
-        size: size,
-
-        testAxis,
-
-        width: width
-    });
-
-
-    /*
-     * Position an element relative to the window, document, another element, or the cursor/mouse.
-     * see https://jqueryui.com/position/
-     */
-    ( function() {
-        var max = Math.max,
-            abs = Math.abs,
-            rhorizontal = /left|center|right/,
-            rvertical = /top|center|bottom/,
-            roffset = /[\+\-]\d+(\.[\d]+)?%?/,
-            rposition = /^\w+/,
-            rpercent = /%$/;
-
-        function getOffsets( offsets, width, height ) {
-            return [
-                parseFloat( offsets[ 0 ] ) * ( rpercent.test( offsets[ 0 ] ) ? width / 100 : 1 ),
-                parseFloat( offsets[ 1 ] ) * ( rpercent.test( offsets[ 1 ] ) ? height / 100 : 1 )
-            ];
-        }
-
-        function parseCss( element, property ) {
-            return parseInt( styler.css( element, property ), 10 ) || 0;
-        }
-
-        function getDimensions( raw ) {
-            if ( raw.nodeType === 9 ) {
-                return {
-                    size: size(raw),
-                    offset: { top: 0, left: 0 }
-                };
-            }
-            if ( noder.isWindow( raw ) ) {
-                return {
-                    size: size(raw),
-                    offset: { 
-                        top: scrollTop(raw), 
-                        left: scrollLeft(raw) 
-                    }
-                };
-            }
-            if ( raw.preventDefault ) {
-                return {
-                    size : {
-                        width: 0,
-                        height: 0
-                    },
-                    offset: { 
-                        top: raw.pageY, 
-                        left: raw.pageX 
-                    }
-                };
-            }
-            return {
-                size: size(raw),
-                offset: pagePosition(raw)
-            };
-        }
-
-        function getScrollInfo( within ) {
-            var overflowX = within.isWindow || within.isDocument ? "" :
-                    styler.css(within.element,"overflow-x" ),
-                overflowY = within.isWindow || within.isDocument ? "" :
-                    styler.css(within.element,"overflow-y" ),
-                hasOverflowX = overflowX === "scroll" ||
-                    ( overflowX === "auto" && within.width < scrollWidth(within.element) ),
-                hasOverflowY = overflowY === "scroll" ||
-                    ( overflowY === "auto" && within.height < scrollHeight(within.element));
-            return {
-                width: hasOverflowY ? scrollbarWidth() : 0,
-                height: hasOverflowX ? scrollbarWidth() : 0
-            };
-        }
-
-        function getWithinInfo( element ) {
-            var withinElement = element || window,
-                isWindow = noder.isWindow( withinElement),
-                isDocument = !!withinElement && withinElement.nodeType === 9,
-                hasOffset = !isWindow && !isDocument,
-                msize = marginSize(withinElement);
-            return {
-                element: withinElement,
-                isWindow: isWindow,
-                isDocument: isDocument,
-                offset: hasOffset ? pagePosition(element) : { left: 0, top: 0 },
-                scrollLeft: scrollLeft(withinElement),
-                scrollTop: scrollTop(withinElement),
-                width: msize.width,
-                height: msize.height
-            };
-        }
-
-        function posit(elm,options ) {
-            // Make a copy, we don't want to modify arguments
-            options = langx.extend( {}, options );
-
-            var atOffset, targetWidth, targetHeight, targetOffset, basePosition, dimensions,
-                target = options.of,
-                within = getWithinInfo( options.within ),
-                scrollInfo = getScrollInfo( within ),
-                collision = ( options.collision || "flip" ).split( " " ),
-                offsets = {};
-
-            dimensions = getDimensions( target );
-            if ( target.preventDefault ) {
-
-                // Force left top to allow flipping
-                options.at = "left top";
-            }
-            targetWidth = dimensions.size.width;
-            targetHeight = dimensions.size.height;
-            targetOffset = dimensions.offset;
-
-            // Clone to reuse original targetOffset later
-            basePosition = langx.extend( {}, targetOffset );
-
-            // Force my and at to have valid horizontal and vertical positions
-            // if a value is missing or invalid, it will be converted to center
-            langx.each( [ "my", "at" ], function() {
-                var pos = ( options[ this ] || "" ).split( " " ),
-                    horizontalOffset,
-                    verticalOffset;
-
-                if ( pos.length === 1 ) {
-                    pos = rhorizontal.test( pos[ 0 ] ) ?
-                        pos.concat( [ "center" ] ) :
-                        rvertical.test( pos[ 0 ] ) ?
-                            [ "center" ].concat( pos ) :
-                            [ "center", "center" ];
-                }
-                pos[ 0 ] = rhorizontal.test( pos[ 0 ] ) ? pos[ 0 ] : "center";
-                pos[ 1 ] = rvertical.test( pos[ 1 ] ) ? pos[ 1 ] : "center";
-
-                // Calculate offsets
-                horizontalOffset = roffset.exec( pos[ 0 ] );
-                verticalOffset = roffset.exec( pos[ 1 ] );
-                offsets[ this ] = [
-                    horizontalOffset ? horizontalOffset[ 0 ] : 0,
-                    verticalOffset ? verticalOffset[ 0 ] : 0
-                ];
-
-                // Reduce to just the positions without the offsets
-                options[ this ] = [
-                    rposition.exec( pos[ 0 ] )[ 0 ],
-                    rposition.exec( pos[ 1 ] )[ 0 ]
-                ];
-            } );
-
-            // Normalize collision option
-            if ( collision.length === 1 ) {
-                collision[ 1 ] = collision[ 0 ];
-            }
-
-            if ( options.at[ 0 ] === "right" ) {
-                basePosition.left += targetWidth;
-            } else if ( options.at[ 0 ] === "center" ) {
-                basePosition.left += targetWidth / 2;
-            }
-
-            if ( options.at[ 1 ] === "bottom" ) {
-                basePosition.top += targetHeight;
-            } else if ( options.at[ 1 ] === "center" ) {
-                basePosition.top += targetHeight / 2;
-            }
-
-            atOffset = getOffsets( offsets.at, targetWidth, targetHeight );
-            basePosition.left += atOffset[ 0 ];
-            basePosition.top += atOffset[ 1 ];
-
-            return ( function(elem) {
-                var collisionPosition, using,
-                    msize = marginSize(elem),
-                    elemWidth = msize.width,
-                    elemHeight = msize.height,
-                    marginLeft = parseCss( elem, "marginLeft" ),
-                    marginTop = parseCss( elem, "marginTop" ),
-                    collisionWidth = elemWidth + marginLeft + parseCss( elem, "marginRight" ) +
-                        scrollInfo.width,
-                    collisionHeight = elemHeight + marginTop + parseCss( elem, "marginBottom" ) +
-                        scrollInfo.height,
-                    position = langx.extend( {}, basePosition ),
-                    myOffset = getOffsets( offsets.my, msize.width, msize.height);
-
-                if ( options.my[ 0 ] === "right" ) {
-                    position.left -= elemWidth;
-                } else if ( options.my[ 0 ] === "center" ) {
-                    position.left -= elemWidth / 2;
-                }
-
-                if ( options.my[ 1 ] === "bottom" ) {
-                    position.top -= elemHeight;
-                } else if ( options.my[ 1 ] === "center" ) {
-                    position.top -= elemHeight / 2;
-                }
-
-                position.left += myOffset[ 0 ];
-                position.top += myOffset[ 1 ];
-
-                collisionPosition = {
-                    marginLeft: marginLeft,
-                    marginTop: marginTop
-                };
-
-                langx.each( [ "left", "top" ], function( i, dir ) {
-                    if ( positions[ collision[ i ] ] ) {
-                        positions[ collision[ i ] ][ dir ]( position, {
-                            targetWidth: targetWidth,
-                            targetHeight: targetHeight,
-                            elemWidth: elemWidth,
-                            elemHeight: elemHeight,
-                            collisionPosition: collisionPosition,
-                            collisionWidth: collisionWidth,
-                            collisionHeight: collisionHeight,
-                            offset: [ atOffset[ 0 ] + myOffset[ 0 ], atOffset [ 1 ] + myOffset[ 1 ] ],
-                            my: options.my,
-                            at: options.at,
-                            within: within,
-                            elem: elem
-                        } );
-                    }
-                } );
-
-                if ( options.using ) {
-
-                    // Adds feedback as second argument to using callback, if present
-                    using = function( props ) {
-                        var left = targetOffset.left - position.left,
-                            right = left + targetWidth - elemWidth,
-                            top = targetOffset.top - position.top,
-                            bottom = top + targetHeight - elemHeight,
-                            feedback = {
-                                target: {
-                                    element: target,
-                                    left: targetOffset.left,
-                                    top: targetOffset.top,
-                                    width: targetWidth,
-                                    height: targetHeight
-                                },
-                                element: {
-                                    element: elem,
-                                    left: position.left,
-                                    top: position.top,
-                                    width: elemWidth,
-                                    height: elemHeight
-                                },
-                                horizontal: right < 0 ? "left" : left > 0 ? "right" : "center",
-                                vertical: bottom < 0 ? "top" : top > 0 ? "bottom" : "middle"
-                            };
-                        if ( targetWidth < elemWidth && abs( left + right ) < targetWidth ) {
-                            feedback.horizontal = "center";
-                        }
-                        if ( targetHeight < elemHeight && abs( top + bottom ) < targetHeight ) {
-                            feedback.vertical = "middle";
-                        }
-                        if ( max( abs( left ), abs( right ) ) > max( abs( top ), abs( bottom ) ) ) {
-                            feedback.important = "horizontal";
-                        } else {
-                            feedback.important = "vertical";
-                        }
-                        options.using.call( this, props, feedback );
-                    };
-                }
-
-                pagePosition(elem, langx.extend( position, { using: using } ));
-            })(elm);
-        }
-
-        var positions = {
-            fit: {
-                left: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.isWindow ? within.scrollLeft : within.offset.left,
-                        outerWidth = within.width,
-                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-                        overLeft = withinOffset - collisionPosLeft,
-                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - withinOffset,
-                        newOverRight;
-
-                    // Element is wider than within
-                    if ( data.collisionWidth > outerWidth ) {
-
-                        // Element is initially over the left side of within
-                        if ( overLeft > 0 && overRight <= 0 ) {
-                            newOverRight = position.left + overLeft + data.collisionWidth - outerWidth -
-                                withinOffset;
-                            position.left += overLeft - newOverRight;
-
-                        // Element is initially over right side of within
-                        } else if ( overRight > 0 && overLeft <= 0 ) {
-                            position.left = withinOffset;
-
-                        // Element is initially over both left and right sides of within
-                        } else {
-                            if ( overLeft > overRight ) {
-                                position.left = withinOffset + outerWidth - data.collisionWidth;
-                            } else {
-                                position.left = withinOffset;
-                            }
-                        }
-
-                    // Too far left -> align with left edge
-                    } else if ( overLeft > 0 ) {
-                        position.left += overLeft;
-
-                    // Too far right -> align with right edge
-                    } else if ( overRight > 0 ) {
-                        position.left -= overRight;
-
-                    // Adjust based on position and margin
-                    } else {
-                        position.left = max( position.left - collisionPosLeft, position.left );
-                    }
-                },
-                top: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.isWindow ? within.scrollTop : within.offset.top,
-                        outerHeight = data.within.height,
-                        collisionPosTop = position.top - data.collisionPosition.marginTop,
-                        overTop = withinOffset - collisionPosTop,
-                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - withinOffset,
-                        newOverBottom;
-
-                    // Element is taller than within
-                    if ( data.collisionHeight > outerHeight ) {
-
-                        // Element is initially over the top of within
-                        if ( overTop > 0 && overBottom <= 0 ) {
-                            newOverBottom = position.top + overTop + data.collisionHeight - outerHeight -
-                                withinOffset;
-                            position.top += overTop - newOverBottom;
-
-                        // Element is initially over bottom of within
-                        } else if ( overBottom > 0 && overTop <= 0 ) {
-                            position.top = withinOffset;
-
-                        // Element is initially over both top and bottom of within
-                        } else {
-                            if ( overTop > overBottom ) {
-                                position.top = withinOffset + outerHeight - data.collisionHeight;
-                            } else {
-                                position.top = withinOffset;
-                            }
-                        }
-
-                    // Too far up -> align with top
-                    } else if ( overTop > 0 ) {
-                        position.top += overTop;
-
-                    // Too far down -> align with bottom edge
-                    } else if ( overBottom > 0 ) {
-                        position.top -= overBottom;
-
-                    // Adjust based on position and margin
-                    } else {
-                        position.top = max( position.top - collisionPosTop, position.top );
-                    }
-                }
-            },
-            flip: {
-                left: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.offset.left + within.scrollLeft,
-                        outerWidth = within.width,
-                        offsetLeft = within.isWindow ? within.scrollLeft : within.offset.left,
-                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-                        overLeft = collisionPosLeft - offsetLeft,
-                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - offsetLeft,
-                        myOffset = data.my[ 0 ] === "left" ?
-                            -data.elemWidth :
-                            data.my[ 0 ] === "right" ?
-                                data.elemWidth :
-                                0,
-                        atOffset = data.at[ 0 ] === "left" ?
-                            data.targetWidth :
-                            data.at[ 0 ] === "right" ?
-                                -data.targetWidth :
-                                0,
-                        offset = -2 * data.offset[ 0 ],
-                        newOverRight,
-                        newOverLeft;
-
-                    if ( overLeft < 0 ) {
-                        newOverRight = position.left + myOffset + atOffset + offset + data.collisionWidth -
-                            outerWidth - withinOffset;
-                        if ( newOverRight < 0 || newOverRight < abs( overLeft ) ) {
-                            position.left += myOffset + atOffset + offset;
-                        }
-                    } else if ( overRight > 0 ) {
-                        newOverLeft = position.left - data.collisionPosition.marginLeft + myOffset +
-                            atOffset + offset - offsetLeft;
-                        if ( newOverLeft > 0 || abs( newOverLeft ) < overRight ) {
-                            position.left += myOffset + atOffset + offset;
-                        }
-                    }
-                },
-                top: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.offset.top + within.scrollTop,
-                        outerHeight = within.height,
-                        offsetTop = within.isWindow ? within.scrollTop : within.offset.top,
-                        collisionPosTop = position.top - data.collisionPosition.marginTop,
-                        overTop = collisionPosTop - offsetTop,
-                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - offsetTop,
-                        top = data.my[ 1 ] === "top",
-                        myOffset = top ?
-                            -data.elemHeight :
-                            data.my[ 1 ] === "bottom" ?
-                                data.elemHeight :
-                                0,
-                        atOffset = data.at[ 1 ] === "top" ?
-                            data.targetHeight :
-                            data.at[ 1 ] === "bottom" ?
-                                -data.targetHeight :
-                                0,
-                        offset = -2 * data.offset[ 1 ],
-                        newOverTop,
-                        newOverBottom;
-                    if ( overTop < 0 ) {
-                        newOverBottom = position.top + myOffset + atOffset + offset + data.collisionHeight -
-                            outerHeight - withinOffset;
-                        if ( newOverBottom < 0 || newOverBottom < abs( overTop ) ) {
-                            position.top += myOffset + atOffset + offset;
-                        }
-                    } else if ( overBottom > 0 ) {
-                        newOverTop = position.top - data.collisionPosition.marginTop + myOffset + atOffset +
-                            offset - offsetTop;
-                        if ( newOverTop > 0 || abs( newOverTop ) < overBottom ) {
-                            position.top += myOffset + atOffset + offset;
-                        }
-                    }
-                }
-            },
-            flipfit: {
-                left: function() {
-                    positions.flip.left.apply( this, arguments );
-                    positions.fit.left.apply( this, arguments );
-                },
-                top: function() {
-                    positions.flip.top.apply( this, arguments );
-                    positions.fit.top.apply( this, arguments );
-                }
-            }
-        };
-
-        geom.posit = posit;
-    })();
-
-    return skylark.attach("domx.geom", geom);
-});
 define('skylark-domx-geom/main',[
     "skylark-langx/langx",
     "./geom",
@@ -8999,6 +15772,8 @@ define('skylark-domx-geom/main',[
         "contentRect",
         "height",
         "marginExtents",
+        "marginRect",
+        "marginSize",
         "offsetParent",
         "paddingExtents",
         "pagePosition",
@@ -9316,7 +16091,11 @@ define('skylark-domx-data/data',[
                 }
             }
             var attrName = 'data-' + name.replace(capitalRE, "-$1").toLowerCase()
-            return attr(elm, attrName);
+            var value = attr(elm, attrName);
+            if (!langx.isString(value)) {
+              value = undefined;
+            }
+            return value;
         }
 
     }
@@ -9626,13 +16405,23 @@ define('skylark-domx-eventer/eventer',[
     }
 
     function parse(event) {
-        var segs = ("" + event).split(".");
-        return {
-            type: segs[0],
-            ns: segs.slice(1).sort().join(" ")
-        };
+        if (event) {
+            var segs = ("" + event).split(".");
+            return {
+                type: segs[0],
+                ns: segs.slice(1).sort().join(" ")
+            };
+        } else {
+            return {
+                type : null,
+                ns : null
+            }
+        }
     }
 
+    function isHandler(callback) {
+        return callback && (langx.isFunction(callback) || langx.isFunction(callback.handleEvent));
+    }
 
     var NativeEventCtors = [
             window["CustomEvent"], // 0 default
@@ -9680,6 +16469,31 @@ define('skylark-domx-eventer/eventer',[
             "selectionchange": 3, // Event
             "submit": 3, // Event
             "reset": 3, // Event
+            'fullscreenchange':3,
+            'fullscreenerror':3,
+
+/*
+            'disablepictureinpicturechanged':3,
+            'ended':3,
+            'enterpictureinpicture':3,
+            'durationchange':3,
+            'leavepictureinpicture':3,
+            'loadstart' : 3,
+            'loadedmetadata':3,
+            'pause' : 3,
+            'play':3,
+            'posterchange':3,
+            'ratechange':3,
+            'seeking' : 3,
+            'sourceset':3,
+            'suspend':3,
+            'textdata':3,
+            'texttrackchange':3,
+            'timeupdate':3,
+            'volumechange':3,
+            'waiting' : 3,
+*/
+
 
             "focus": 4, // FocusEvent
             "blur": 4, // FocusEvent
@@ -9704,8 +16518,11 @@ define('skylark-domx-eventer/eventer',[
             "mouseleave": 7, // MouseEvent
 
 
+            "progress" : 11, //ProgressEvent
+
             "textInput": 12, // TextEvent
 
+            "tap": 13,
             "touchstart": 13, // TouchEvent
             "touchmove": 13, // TouchEvent
             "touchend": 13, // TouchEvent
@@ -9716,7 +16533,10 @@ define('skylark-domx-eventer/eventer',[
             "scroll": 14, // UIEvent
             "unload": 14, // UIEvent,
 
-            "wheel": 15 // WheelEvent
+            "wheel": 15, // WheelEvent
+
+
+
         };
 
     //create a custom dom event
@@ -9816,6 +16636,8 @@ define('skylark-domx-eventer/eventer',[
                             args = [e];
                         }
 
+                        e.type = self._event; // convert realEvent to listened event
+
                         langx.each(bindings, function(idx, binding) {
                             var match = elm;
                             if (e.isImmediatePropagationStopped && e.isImmediatePropagationStopped()) {
@@ -9858,7 +16680,16 @@ define('skylark-domx-eventer/eventer',[
                                 self.remove(fn, options);
                             }
 
-                            var result = fn.apply(match, args);
+                            var result ;
+                            if (fn.handleEvent) {
+                                result = fn.handleEvent.apply(fn,args);
+                            } else {
+                                if (options.ctx) {
+                                    result = fn.apply(options.ctx, args);                                   
+                                } else {
+                                    result = fn.apply(match, args);                                   
+                                }
+                            }
 
                             if (result === false) {
                                 e.preventDefault();
@@ -9978,6 +16809,19 @@ define('skylark-domx-eventer/eventer',[
             return handler;
         };
 
+
+    /*   
+     * Remove all event handlers from the specified element.
+     * @param {HTMLElement} elm  
+     */
+    function clear(elm) {
+        var handler = findHandler(elm);
+
+        handler.unregister();
+
+        return this;
+    }
+
     /*   
      * Remove an event handler for one or more events from the specified element.
      * @param {HTMLElement} elm  
@@ -9994,7 +16838,7 @@ define('skylark-domx-eventer/eventer',[
             return $this;
         }
 
-        if (!langx.isString(selector) && !langx.isFunction(callback) && callback !== false) {
+        if (!langx.isString(selector) && !isHandler(callback) && callback !== false) {
             callback = selector;
             selector = undefined;
         }
@@ -10031,7 +16875,7 @@ define('skylark-domx-eventer/eventer',[
      * @param {Function} callback
      * @param {Boolean　Optional} one
      */
-    function on(elm, events, selector, data, callback, one) {
+    function on(elm, events, selector, data, callback, ctx,one) {
 
         var autoRemove, delegator;
         if (langx.isPlainObject(events)) {
@@ -10041,17 +16885,25 @@ define('skylark-domx-eventer/eventer',[
             return this;
         }
 
-        if (!langx.isString(selector) && !langx.isFunction(callback)) {
+        if (!langx.isString(selector) && !isHandler(callback)) {
+            one = ctx;
+            ctx = callback;
             callback = data;
             data = selector;
             selector = undefined;
         }
 
-        if (langx.isFunction(data)) {
+        if (isHandler(data)) {
+            one = ctx;
+            ctx = callback;
             callback = data;
             data = undefined;
         }
 
+        if (langx.isBoolean(ctx)) {
+            one = ctx;
+            ctx = undefined;
+        }
         if (callback === false) {
             callback = langx.returnFalse;
         }
@@ -10073,6 +16925,7 @@ define('skylark-domx-eventer/eventer',[
             handler.register(event, callback, {
                 data: data,
                 selector: selector,
+                ctx : ctx,
                 one: !!one
             });
         });
@@ -10241,6 +17094,20 @@ define('skylark-domx-eventer/eventer',[
         }        
     }
 
+    function isNativeEvent(events) {
+        if (langx.isString(events)) {
+            return !!NativeEvents[events];
+        } else if (langx.isArray(events)) {
+            for (var i=0; i<events.length; i++) {
+                if (NativeEvents[events]) {
+                    return false;
+                }
+            }
+            return events.length > 0;
+        }
+    }
+
+
     function eventer() {
         return eventer;
     }
@@ -10248,9 +17115,13 @@ define('skylark-domx-eventer/eventer',[
     langx.mixin(eventer, {
         NativeEvents : NativeEvents,
         
+        clear,
+        
         create: createEvent,
 
         keys: keyCodeLookup,
+
+        isNativeEvent,
 
         off: off,
 
