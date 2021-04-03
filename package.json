@@ -31,7 +31,6 @@
     "skylark-domx-geom": "git+https://github.com/skylark-domx/skylark-domx-geom.git#master",
     "skylark-domx-noder": "git+https://github.com/skylark-domx/skylark-domx-noder.git#master",
     "skylark-domx-styler": "git+https://github.com/skylark-domx/skylark-domx-styler.git#master",
-    "skylark-graphics-color": "git+https://github.com/skylark-graphics/skylark-graphics-color.git#master",
     "skylark-graphics-colors": "git+https://github.com/skylark-graphics/skylark-graphics-color.git#master",
     "skylark-langx-arrays": "git+https://github.com/skylark-langx/skylark-langx-arrays.git#master",
     "skylark-langx-funcs": "git+https://github.com/skylark-langx/skylark-langx-funcs.git#master",
