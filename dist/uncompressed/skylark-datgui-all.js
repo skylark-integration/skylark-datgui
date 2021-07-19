@@ -101,18 +101,26 @@ define('skylark-langx-ns/_attach',[],function(){
             name = path[i++];
         }
 
-        return ns[name] = obj2;
+        if (ns[name]) {
+            if (obj2) {
+                throw new Error("This namespace already exists:" + path);
+            }
+
+        } else {
+            ns[name] = obj2 || {};
+        }
+        return ns[name];
     }
 });
 define('skylark-langx-ns/ns',[
     "./_attach"
 ], function(_attach) {
-    var skylark = {
+    var root = {
     	attach : function(path,obj) {
-    		return _attach(skylark,path,obj);
+    		return _attach(root,path,obj);
     	}
     };
-    return skylark;
+    return root;
 });
 
 define('skylark-langx-ns/main',[
@@ -606,6 +614,133 @@ define('skylark-langx-objects/objects',[
         return keys;
     }
 
+    // Retrieve the names of an object's own properties.
+    // Delegates to **ECMAScript 5**'s native `Object.keys`.
+    function keys(obj) {
+        if (isObject(obj)) return [];
+        var keys = [];
+        for (var key in obj) if (has(obj, key)) keys.push(key);
+        return keys;
+    }
+
+    function has(obj, path) {
+        if (!isArray(path)) {
+            return obj != null && hasOwnProperty.call(obj, path);
+        }
+        var length = path.length;
+        for (var i = 0; i < length; i++) {
+            var key = path[i];
+            if (obj == null || !hasOwnProperty.call(obj, key)) {
+                return false;
+            }
+            obj = obj[key];
+        }
+        return !!length;
+    }
+
+
+    // Returns whether an object has a given set of `key:value` pairs.
+    function isMatch(object, attrs) {
+        var keys = keys(attrs), length = keys.length;
+        if (object == null) return !length;
+        var obj = Object(object);
+        for (var i = 0; i < length; i++) {
+          var key = keys[i];
+          if (attrs[key] !== obj[key] || !(key in obj)) return false;
+        }
+        return true;
+    }    
+
+
+    function removeItem(items, item) {
+        if (isArray(items)) {
+            var idx = items.indexOf(item);
+            if (idx != -1) {
+                items.splice(idx, 1);
+            }
+        } else if (isPlainObject(items)) {
+            for (var key in items) {
+                if (items[key] == item) {
+                    delete items[key];
+                    break;
+                }
+            }
+        }
+
+        return this;
+    }
+
+
+
+    // Retrieve the values of an object's properties.
+    function values(obj) {
+        var keys = allKeys(obj);
+        var length = keys.length;
+        var values = Array(length);
+        for (var i = 0; i < length; i++) {
+            values[i] = obj[keys[i]];
+        }
+        return values;
+    }
+
+
+    return skylark.attach("langx.objects",{
+        allKeys: allKeys,
+
+        attach : skylark.attach,
+
+        defaults : createAssigner(allKeys, true),
+
+        has: has,
+
+        isMatch: isMatch,
+
+        keys: keys,
+
+        removeItem: removeItem,
+
+        values: values
+    });
+
+
+});
+define('skylark-langx-objects/clone',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects) {
+    var isPlainObject = types.isPlainObject,
+        isArray = types.isArray;
+
+    function clone( /*anything*/ src,checkCloneMethod) {
+        var copy;
+        if (src === undefined || src === null) {
+            copy = src;
+        } else if (checkCloneMethod && src.clone) {
+            copy = src.clone();
+        } else if (isArray(src)) {
+            copy = [];
+            for (var i = 0; i < src.length; i++) {
+                copy.push(clone(src[i]));
+            }
+        } else if (isPlainObject(src)) {
+            copy = {};
+            for (var key in src) {
+                copy[key] = clone(src[key]);
+            }
+        } else {
+            copy = src;
+        }
+
+        return copy;
+
+    }
+
+    return objects.clone = clone;
+});
+define('skylark-langx-objects/each',[
+    "./objects"
+],function(objects) {
+
     function each(obj, callback,isForEach) {
         var length, key, i, undef, value;
 
@@ -636,6 +771,94 @@ define('skylark-langx-objects/objects',[
         return this;
     }
 
+    return objects.each = each;
+});
+define('skylark-langx-objects/_mixin',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects) {
+
+    var isPlainObject = types.isPlainObject;
+
+    function _mixin(target, source, deep, safe) {
+        for (var key in source) {
+            //if (!source.hasOwnProperty(key)) {
+            //    continue;
+            //}
+            if (safe && target[key] !== undefined) {
+                continue;
+            }
+            // if (deep && (isPlainObject(source[key]) || isArray(source[key]))) {
+            //    if (isPlainObject(source[key]) && !isPlainObject(target[key])) {
+            if (deep && isPlainObject(source[key])) {
+                if (!isPlainObject(target[key])) {
+                    target[key] = {};
+                }
+                //if (isArray(source[key]) && !isArray(target[key])) {
+                //    target[key] = [];
+                //}
+                _mixin(target[key], source[key], deep, safe);
+            } else if (source[key] !== undefined) {
+                target[key] = source[key]
+            }
+        }
+        return target;
+    }
+
+    return _mixin;
+});
+define('skylark-langx-objects/_parse_mixin_args',[
+    "skylark-langx-types",
+    "./objects"
+],function(types,objects) {
+
+    var slice = Array.prototype.slice,
+        isBoolean = types.isBoolean;
+
+    function _parseMixinArgs(args) {
+        var params = slice.call(arguments, 0),
+            target = params.shift(),
+            deep = false;
+        if (isBoolean(params[params.length - 1])) {
+            deep = params.pop();
+        }
+
+        return {
+            target: target,
+            sources: params,
+            deep: deep
+        };
+    }
+    
+    return _parseMixinArgs;
+});
+define('skylark-langx-objects/mixin',[
+	"skylark-langx-types",
+	"./objects",
+  "./_mixin",
+  "./_parse_mixin_args"
+],function(types,objects,_mixin,_parseMixinArgs) {
+
+
+    function mixin() {
+        var args = _parseMixinArgs.apply(this, arguments);
+
+        args.sources.forEach(function(source) {
+            _mixin(args.target, source, args.deep, false);
+        });
+        return args.target;
+    }
+
+
+    return objects.mixin = mixin;
+	
+});
+define('skylark-langx-objects/extend',[
+    "./objects",
+    "./mixin"
+],function(objects,mixin) {
+    var slice = Array.prototype.slice;
+
     function extend(target) {
         var deep, args = slice.call(arguments, 1);
         if (typeof target == 'boolean') {
@@ -652,29 +875,11 @@ define('skylark-langx-objects/objects',[
         return target;
     }
 
-    // Retrieve the names of an object's own properties.
-    // Delegates to **ECMAScript 5**'s native `Object.keys`.
-    function keys(obj) {
-        if (isObject(obj)) return [];
-        var keys = [];
-        for (var key in obj) if (has(obj, key)) keys.push(key);
-        return keys;
-    }
-
-    function has(obj, path) {
-        if (!isArray(path)) {
-            return obj != null && hasOwnProperty.call(obj, path);
-        }
-        var length = path.length;
-        for (var i = 0; i < length; i++) {
-            var key = path[i];
-            if (obj == null || !hasOwnProperty.call(obj, key)) {
-                return false;
-            }
-            obj = obj[key];
-        }
-        return !!length;
-    }
+    return objects.extend = extend;
+});
+define('skylark-langx-objects/includes',[
+    "./objects"
+],function(objects) {
 
     /**
      * Checks if `value` is in `collection`. If `collection` is a string, it's
@@ -720,208 +925,10 @@ define('skylark-langx-objects/objects',[
     }
 
 
-    // Returns whether an object has a given set of `key:value` pairs.
-    function isMatch(object, attrs) {
-        var keys = keys(attrs), length = keys.length;
-        if (object == null) return !length;
-        var obj = Object(object);
-        for (var i = 0; i < length; i++) {
-          var key = keys[i];
-          if (attrs[key] !== obj[key] || !(key in obj)) return false;
-        }
-        return true;
-    }    
 
-    function _mixin(target, source, deep, safe) {
-        for (var key in source) {
-            //if (!source.hasOwnProperty(key)) {
-            //    continue;
-            //}
-            if (safe && target[key] !== undefined) {
-                continue;
-            }
-            // if (deep && (isPlainObject(source[key]) || isArray(source[key]))) {
-            //    if (isPlainObject(source[key]) && !isPlainObject(target[key])) {
-            if (deep && isPlainObject(source[key])) {
-                if (!isPlainObject(target[key])) {
-                    target[key] = {};
-                }
-                //if (isArray(source[key]) && !isArray(target[key])) {
-                //    target[key] = [];
-                //}
-                _mixin(target[key], source[key], deep, safe);
-            } else if (source[key] !== undefined) {
-                target[key] = source[key]
-            }
-        }
-        return target;
-    }
-
-    function _parseMixinArgs(args) {
-        var params = slice.call(arguments, 0),
-            target = params.shift(),
-            deep = false;
-        if (isBoolean(params[params.length - 1])) {
-            deep = params.pop();
-        }
-
-        return {
-            target: target,
-            sources: params,
-            deep: deep
-        };
-    }
-
-    function mixin() {
-        var args = _parseMixinArgs.apply(this, arguments);
-
-        args.sources.forEach(function(source) {
-            _mixin(args.target, source, args.deep, false);
-        });
-        return args.target;
-    }
-
-   // Return a copy of the object without the blacklisted properties.
-    function omit(obj, prop1,prop2) {
-        if (!obj) {
-            return null;
-        }
-        var result = mixin({},obj);
-        for(var i=1;i<arguments.length;i++) {
-            var pn = arguments[i];
-            if (pn in obj) {
-                delete result[pn];
-            }
-        }
-        return result;
-
-    }
-
-   // Return a copy of the object only containing the whitelisted properties.
-    function pick(obj,prop1,prop2) {
-        if (!obj) {
-            return null;
-        }
-        var result = {};
-        for(var i=1;i<arguments.length;i++) {
-            var pn = arguments[i];
-            if (pn in obj) {
-                result[pn] = obj[pn];
-            }
-        }
-        return result;
-    }
-
-    function removeItem(items, item) {
-        if (isArray(items)) {
-            var idx = items.indexOf(item);
-            if (idx != -1) {
-                items.splice(idx, 1);
-            }
-        } else if (isPlainObject(items)) {
-            for (var key in items) {
-                if (items[key] == item) {
-                    delete items[key];
-                    break;
-                }
-            }
-        }
-
-        return this;
-    }
-
-
-    function safeMixin() {
-        var args = _parseMixinArgs.apply(this, arguments);
-
-        args.sources.forEach(function(source) {
-            _mixin(args.target, source, args.deep, true);
-        });
-        return args.target;
-    }
-
-    // Retrieve the values of an object's properties.
-    function values(obj) {
-        var keys = allKeys(obj);
-        var length = keys.length;
-        var values = Array(length);
-        for (var i = 0; i < length; i++) {
-            values[i] = obj[keys[i]];
-        }
-        return values;
-    }
-
-    function clone( /*anything*/ src,checkCloneMethod) {
-        var copy;
-        if (src === undefined || src === null) {
-            copy = src;
-        } else if (checkCloneMethod && src.clone) {
-            copy = src.clone();
-        } else if (isArray(src)) {
-            copy = [];
-            for (var i = 0; i < src.length; i++) {
-                copy.push(clone(src[i]));
-            }
-        } else if (isPlainObject(src)) {
-            copy = {};
-            for (var key in src) {
-                copy[key] = clone(src[key]);
-            }
-        } else {
-            copy = src;
-        }
-
-        return copy;
-
-    }
-
-    function scall(obj,method,arg1,arg2) {
-        if (obj && obj[method]) {
-            var args = slice.call(arguments, 2);
-
-            return obj[method].apply(obj,args);
-        }
-    }
-
-    return skylark.attach("langx.objects",{
-        allKeys: allKeys,
-
-        attach : skylark.attach,
-
-        clone: clone,
-
-        defaults : createAssigner(allKeys, true),
-
-        each : each,
-
-        extend : extend,
-
-        has: has,
-
-        includes: includes,
-
-        isMatch: isMatch,
-
-        keys: keys,
-
-        mixin: mixin,
-
-        omit: omit,
-
-        pick: pick,
-
-        removeItem: removeItem,
-     
-        safeMixin: safeMixin,
-
-        scall,
-
-        values: values
-    });
-
-
+    return objects.includes = includes;
 });
-define('skylark-langx-objects/isEqual',[
+define('skylark-langx-objects/is-equal',[
 	"skylark-langx-types",
 	"./objects"
 ],function(types,objects) {
@@ -1044,6 +1051,49 @@ define('skylark-langx-objects/isEqual',[
     return objects.isEqual = isEqual;
 	
 });
+define('skylark-langx-objects/omit',[
+    "./objects"
+],function(objects) {
+
+   // Return a copy of the object without the blacklisted properties.
+    function omit(obj, prop1,prop2) {
+        if (!obj) {
+            return null;
+        }
+        var result = mixin({},obj);
+        for(var i=1;i<arguments.length;i++) {
+            var pn = arguments[i];
+            if (pn in obj) {
+                delete result[pn];
+            }
+        }
+        return result;
+
+    }
+    
+    return objects.omit = omit;
+});
+define('skylark-langx-objects/pick',[
+    "./objects"
+],function(objects) {
+
+   // Return a copy of the object only containing the whitelisted properties.
+    function pick(obj,prop1,prop2) {
+        if (!obj) {
+            return null;
+        }
+        var result = {};
+        for(var i=1;i<arguments.length;i++) {
+            var pn = arguments[i];
+            if (pn in obj) {
+                result[pn] = obj[pn];
+            }
+        }
+        return result;
+    }
+    
+    return objects.pick = pick;
+});
 define('skylark-langx-objects/result',[
 	"skylark-langx-types",
 	"./objects"
@@ -1074,10 +1124,67 @@ define('skylark-langx-objects/result',[
     return objects.result = result;
 	
 });
+define('skylark-langx-objects/safe-mixin',[
+	"./objects",
+  "./_mixin",
+  "./_parse_mixin_args"
+],function(objects,_mixin,_parseMixinArgs) {
+
+    function safeMixin() {
+        var args = _parseMixinArgs.apply(this, arguments);
+
+        args.sources.forEach(function(source) {
+            _mixin(args.target, source, args.deep, true);
+        });
+        return args.target;
+    }
+
+    return objects.safeMixin = safeMixin;
+});
+define('skylark-langx-objects/scall',[
+    "./objects"
+],function(objects) {
+
+    function scall(obj,method,arg1,arg2) {
+        if (obj && obj[method]) {
+            var args = slice.call(arguments, 2);
+
+            return obj[method].apply(obj,args);
+        }
+    }
+
+    return objects.scall = scall;
+});
+ define('skylark-langx-objects/shadow',[
+	"./objects"
+],function(objects) {
+
+    function shadow(obj, prop, value) {
+        Object.defineProperty(obj, prop, {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: false
+        });
+        return value;
+    }
+
+    return objects.shadow = shadow;
+});
 define('skylark-langx-objects/main',[
 	"./objects",
-	"./isEqual",
-	"./result"
+	"./clone",
+	"./each",
+	"./extend",
+	"./includes",
+	"./is-equal",
+	"./mixin",
+	"./omit",
+	"./pick",
+	"./result",
+	"./safe-mixin",
+	"./scall",
+	"./shadow"
 ],function(objects){
 	return objects;
 });
@@ -1211,6 +1318,10 @@ define('skylark-langx-arrays/arrays',[
         return -1;
     }
 
+    function indexOf(array,item) {
+      return array.indexOf(item);
+    }
+
     function makeArray(obj, offset, startWith) {
        if (isArrayLike(obj) ) {
         return (startWith || []).concat(Array.prototype.slice.call(obj, offset || 0));
@@ -1224,6 +1335,10 @@ define('skylark-langx-arrays/arrays',[
     function forEach (arr, fn) {
       if (arr.forEach) return arr.forEach(fn)
       for (var i = 0; i < arr.length; i++) fn(arr[i], i);
+    }
+
+    function last(arr) {
+        return arr[arr.length - 1];     
     }
 
     function map(elements, callback) {
@@ -1302,9 +1417,13 @@ define('skylark-langx-arrays/arrays',[
 
         inArray: inArray,
 
+        indexOf : indexOf,
+
         makeArray: makeArray, // 
 
         toArray : makeArray,
+
+        last : last,
 
         merge : merge,
 
@@ -2147,31 +2266,55 @@ define('skylark-langx-funcs/funcs',[
     });
 });
 define('skylark-langx-funcs/defer',[
+    "skylark-langx-types",
     "./funcs"
-],function(funcs){
-    function defer(fn,args,context) {
+],function(types,funcs){
+
+    function defer(fn,trigger,args,context) {
         var ret = {
-            stop : null
+            cancel : null
         },
-        id,
         fn1 = fn;
+
+        if (!types.isNumber(trigger) && !types.isFunction(trigger)) {
+            context = args;
+            args = trigger;
+            trigger = 0;
+        }
 
         if (args) {
             fn1 = function() {
                 fn.apply(context,args);
             };
         }
-        if (requestAnimationFrame) {
-            id = requestAnimationFrame(fn1);
-            ret.stop = function() {
-                return cancelAnimationFrame(id);
-            };
+
+        if (types.isFunction(trigger)) {
+            var canceled = false;
+            trigger(function(){
+                if (!canceled) {
+                    fn1();
+                }
+            });
+
+            ret.cancel = function() {
+                canceled = true;
+            }
+
         } else {
-            id = setTimeoutout(fn1);
-            ret.stop = function() {
-                return clearTimeout(id);
-            };
+            var  id;
+            if (trigger == 0 && requestAnimationFrame) {
+                id = requestAnimationFrame(fn1);
+                ret.cancel = function() {
+                    return cancelAnimationFrame(id);
+                };
+            } else {
+                id = setTimeout(fn1,trigger);
+                ret.cancel = function() {
+                    return clearTimeout(id);
+                };
+            }            
         }
+
         return ret;
     }
 
@@ -2184,37 +2327,37 @@ define('skylark-langx-funcs/debounce',[
    
     function debounce(fn, wait,useAnimationFrame) {
         var timeout,
-            defered;
+            defered,
+            debounced = function () {
+                var context = this, args = arguments;
+                var later = function () {
+                    timeout = null;
+                    if (useAnimationFrame) {
+                        defered = defer(fn,args,context);
+                    } else {
+                        fn.apply(context, args);
+                    }
+                };
 
-        return function () {
-            var context = this, args = arguments;
-            var later = function () {
-                timeout = null;
-                if (useAnimationFrame) {
-                    defered = defer(fn,args,context);
-                } else {
-                    fn.apply(context, args);
-                }
-            };
+                cancel();
+                timeout = setTimeout(later, wait);
 
-            function stop() {
+                return {
+                    cancel 
+                };
+            },
+            cancel = debounced.cancel = function () {
                 if (timeout) {
                     clearTimeout(timeout);
                 }
                 if (defered) {
-                    defered.stop();
+                    defered.cancel();
                 }
                 timeout = void 0;
                 defered = void 0;
-            }
-
-            stop();
-            timeout = setTimeout(later, wait);
-
-            return {
-                stop 
             };
-        };
+
+        return debounced;
     }
 
     return funcs.debounce = debounce;
@@ -2378,8 +2521,8 @@ define('skylark-langx-funcs/template',[
   "./funcs",
   "./proxy"
 ],function(objects,funcs,proxy){
+    //ref : underscore
     var slice = Array.prototype.slice;
-
    
     // By default, Underscore uses ERB-style template delimiters, change the
     // following template settings to use alternative delimiters.
@@ -2490,6 +2633,25 @@ define('skylark-langx-funcs/throttle',[
         };
         return throttled;
     };
+
+    /*
+    function throttle(func, delay) {
+        var timer = null;
+
+        return function() {
+            var context = this,
+                args = arguments;
+
+            if ( timer === null ) {
+                timer = setTimeout(function() {
+                    func.apply(context, args);
+                    timer = null;
+                }, delay);
+            }
+        };
+    }
+    */
+
 
     return funcs.throttle = throttle;
 });
@@ -3384,6 +3546,7 @@ define('skylark-langx-events/Listener',[
     var slice = Array.prototype.slice,
         compact = arrays.compact,
         isDefined = types.isDefined,
+        isUndefined = types.isUndefined,
         isPlainObject = types.isPlainObject,
         isFunction = types.isFunction,
         isBoolean = types.isBoolean,
@@ -3395,14 +3558,22 @@ define('skylark-langx-events/Listener',[
 
     var Listener = klass({
 
-        listenTo: function(obj, event, callback, /*used internally*/ one) {
+        listenTo: function(obj, event, selector,callback, /*used internally*/ one) {
             if (!obj) {
                 return this;
             }
 
             if (isBoolean(callback)) {
                 one = callback;
-                callback = null;
+                callback = selector;
+                selector = null;
+            } else if (isBoolean(selector)) {
+                one = selector;
+                callback = selector = null;
+            } else if (isUndefined(callback)){
+                one = false;
+                callback = selector;
+                selector = null;
             }
 
             if (types.isPlainObject(event)){
@@ -3424,9 +3595,17 @@ define('skylark-langx-events/Listener',[
             }
 
             if (one) {
-                obj.one(event, callback, this);
+                if (selector) {
+                    obj.one(event, selector,callback, this);
+                } else {
+                    obj.one(event, callback, this);
+                }
             } else {
-                obj.on(event, callback, this);
+                 if (selector) {
+                    obj.on(event, selector, callback, this);
+                } else {
+                    obj.on(event, callback, this);
+                }
             }
 
             //keep track of them on listening.
@@ -3456,8 +3635,8 @@ define('skylark-langx-events/Listener',[
             return this;
         },
 
-        listenToOnce: function(obj, event, callback) {
-            return this.listenTo(obj, event, callback, 1);
+        listenToOnce: function(obj, event,selector, callback) {
+            return this.listenTo(obj, event,selector, callback, 1);
         },
 
         unlistenTo: function(obj, event, callback) {
@@ -3478,12 +3657,17 @@ define('skylark-langx-events/Listener',[
                 }
 
                 var listeningEvents = listening.events;
+
                 for (var eventName in listeningEvents) {
                     if (event && event != eventName) {
                         continue;
                     }
 
                     var listeningEvent = listeningEvents[eventName];
+
+                    if (!listeningEvent) { 
+                        continue;
+                    }
 
                     for (var j = 0; j < listeningEvent.length; j++) {
                         if (!callback || callback == listeningEvent[i]) {
@@ -3543,6 +3727,10 @@ define('skylark-langx-events/Emitter',[
             ns: segs.slice(1).join(" ")
         };
     }
+
+    
+    var queues  = new Map();
+
 
     var Emitter = Listener.inherit({
         _prepareArgs : function(e,args) {
@@ -3651,13 +3839,15 @@ define('skylark-langx-events/Emitter',[
                     if (ns && (!listener.ns ||  !listener.ns.startsWith(ns))) {
                         continue;
                     }
-                    if (e.data) {
-                        if (listener.data) {
-                            e.data = mixin({}, listener.data, e.data);
-                        }
-                    } else {
-                        e.data = listener.data || null;
+
+                    if (listener.data) {
+                        e.data = mixin({}, listener.data, e.data);
                     }
+                    if (args.length == 2 && isPlainObject(args[1])) {
+                        e.data = e.data || {};
+                        mixin(e.data,args[1]);
+                    }
+
                     listener.fn.apply(listener.ctx, args);
                     if (listener.one) {
                         listeners[i] = null;
@@ -3673,12 +3863,36 @@ define('skylark-langx-events/Emitter',[
             return this;
         },
 
+        queueEmit : function (event) {
+            const type = event.type || event;
+            let map = queues.get(this);
+            if (!map) {
+                map = new Map();
+                queues.set(this, map);
+            }
+            const oldTimeout = map.get(type);
+            map.delete(type);
+            window.clearTimeout(oldTimeout);
+            const timeout = window.setTimeout(() => {
+                if (map.size === 0) {
+                    map = null;
+                    queues.delete(this);
+                }
+                this.trigger(event);
+            }, 0);
+            map.set(type, timeout);
+        },
+
         listened: function(event) {
             var evtArr = ((this._hub || (this._events = {}))[event] || []);
             return evtArr.length > 0;
         },
 
         off: function(events, callback) {
+            if (!events) {
+              this._hub = null;
+              return;
+            }
             var _hub = this._hub || (this._hub = {});
             if (isString(events)) {
                 events = events.split(/\s/)
@@ -3720,9 +3934,15 @@ define('skylark-langx-events/Emitter',[
 
             return this;
         },
+
         trigger  : function() {
             return this.emit.apply(this,arguments);
+        },
+
+        queueTrigger : function (event) {
+            return this.queueEmit.apply(this,arguments);
         }
+
     });
 
 
@@ -10613,6 +10833,155 @@ define('skylark-langx/langx',[
 
     return skylark.langx = langx;
 });
+define('skylark-langx-scripter/scripter',[
+    "skylark-langx/skylark",
+    "skylark-langx/langx"
+], function(skylark, langx, noder) {
+
+    var head = document.getElementsByTagName('head')[0],
+        scriptsByUrl = {},
+        scriptElementsById = {},
+        count = 0;
+
+    var rscriptType = ( /^$|^module$|\/(?:java|ecma)script/i );
+
+    function scripter() {
+        return scripter;
+    }
+
+
+    var preservedScriptAttributes = {
+        type: true,
+        src: true,
+        nonce: true,
+        noModule: true
+    };
+
+    function evaluate(code,node, doc ) {
+        doc = doc || document;
+
+        var i, val,
+            script = doc.createElement("script");
+
+        script.text = code;
+        if ( node ) {
+            for ( i in preservedScriptAttributes ) {
+
+                // Support: Firefox 64+, Edge 18+
+                // Some browsers don't support the "nonce" property on scripts.
+                // On the other hand, just using `getAttribute` is not enough as
+                // the `nonce` attribute is reset to an empty string whenever it
+                // becomes browsing-context connected.
+                // See https://github.com/whatwg/html/issues/2369
+                // See https://html.spec.whatwg.org/#nonce-attributes
+                // The `node.getAttribute` check was added for the sake of
+                // `jQuery.globalEval` so that it can fake a nonce-containing node
+                // via an object.
+                val = node[ i ] || node.getAttribute && node.getAttribute( i );
+                if ( val ) {
+                    script.setAttribute( i, val );
+                }
+            }
+        }
+        doc.head.appendChild( script ).parentNode.removeChild( script );
+
+        return this;
+    }
+
+    langx.mixin(scripter, {
+        /*
+         * Load a script from a url into the document.
+         * @param {} url
+         * @param {} loadedCallback
+         * @param {} errorCallback
+         */
+        loadJavaScript: function(url, loadedCallback, errorCallback) {
+            var script = scriptsByUrl[url];
+            if (!script) {
+                script = scriptsByUrl[url] = {
+                    state: 0, //0:unload,1:loaded,-1:loaderror
+                    loadedCallbacks: [],
+                    errorCallbacks: []
+                }
+            }
+
+            script.loadedCallbacks.push(loadedCallback);
+            script.errorCallbacks.push(errorCallback);
+
+            if (script.state === 1) {
+                script.node.onload();
+            } else if (script.state === -1) {
+                script.node.onerror();
+            } else {
+                var node = script.node = document.createElement("script"),
+                    id = script.id = (count++);
+
+                node.type = "text/javascript";
+                node.async = false;
+                node.defer = false;
+                startTime = new Date().getTime();
+                head.appendChild(node);
+
+                node.onload = function() {
+                        script.state = 1;
+
+                        var callbacks = script.loadedCallbacks,
+                            i = callbacks.length;
+
+                        while (i--) {
+                            callbacks[i]();
+                        }
+                        script.loadedCallbacks = [];
+                        script.errorCallbacks = [];
+                    },
+                    node.onerror = function() {
+                        script.state = -1;
+                        var callbacks = script.errorCallbacks,
+                            i = callbacks.length;
+
+                        while (i--) {
+                            callbacks[i]();
+                        }
+                        script.loadedCallbacks = [];
+                        script.errorCallbacks = [];
+                    };
+                node.src = url;
+
+                scriptElementsById[id] = node;
+            }
+            return script.id;
+        },
+        /*
+         * Remove the specified script from the document.
+         * @param {Number} id
+         */
+        deleteJavaScript: function(id) {
+            var node = scriptElementsById[id];
+            if (node) {
+                var url = node.src;
+                if (node.parentNode) {
+                    node.parentNode.remove(node);
+                }
+                delete scriptElementsById[id];
+                delete scriptsByUrl[url];
+            }
+        },
+
+        evaluate : evaluate,
+
+
+    });
+
+    return skylark.attach("langx.scripter", scripter);
+});
+define('skylark-langx-scripter/main',[
+	"./scripter"
+],function(scripter){
+	
+	return scripter;
+});
+define('skylark-langx-scripter', ['skylark-langx-scripter/main'], function (main) { return main; });
+
 define('skylark-domx-browser/browser',[
     "skylark-langx/skylark",
     "skylark-langx/langx"
@@ -10825,10 +11194,21 @@ define('skylark-domx-browser/support/fullscreen',[
 
     return browser.support.fullscreen;
 });
+define('skylark-domx-browser/support/touch',[
+	"../browser"
+],function(browser){
+
+    function supportTouch() {
+        return !!('ontouchstart' in window || window.DocumentTouch && document instanceof window.DocumentTouch);
+    }
+
+    return browser.support.tocuh = supportTouch();
+});
 define('skylark-domx-browser/main',[
 	"./browser",
 	"./support/css3",
-	"./support/fullscreen"
+	"./support/fullscreen",
+	"./support/touch"
 ],function(browser){
 	return browser;
 });
@@ -10837,8 +11217,9 @@ define('skylark-domx-browser', ['skylark-domx-browser/main'], function (main) { 
 define('skylark-domx-noder/noder',[
     "skylark-langx/skylark",
     "skylark-langx/langx",
+    "skylark-langx-scripter",
     "skylark-domx-browser"
-], function(skylark, langx, browser) {
+], function(skylark, langx, scripter,browser) {
     var isIE = !!navigator.userAgent.match(/Trident/g) || !!navigator.userAgent.match(/MSIE/g),
         fragmentRE = /^\s*<(\w+|!)[^>]*>/,
         singleTagRE = /^<(\w+)\s*\/?>(?:<\/\1>|)$/,
@@ -11150,7 +11531,7 @@ function removeSelfClosingTags(xml) {
         if (el === false) {
             return browser.exitFullscreen.apply(document);
         } else if (el) {
-            return browser.requestFullscreen.apply(el);
+            return el[browser.support.fullscreen.requestFullscreen]();
             fulledEl = el;
         } else {
             return (
@@ -11235,11 +11616,11 @@ function removeSelfClosingTags(xml) {
      * @param {HTMLElement} node
      * @param {String} html
      */
-    function html(node, html) {
+    function _html(node, html) {
         if (html === undefined) {
             return node.innerHTML;
         } else {
-            this.empty(node);
+            empty(node);
             html = html || "";
             if (langx.isString(html)) {
                 html = html.replace( rxhtmlTag, "<$1></$2>" );
@@ -11258,6 +11639,24 @@ function removeSelfClosingTags(xml) {
         }
     }
 
+
+    function html(node,value) {
+        var result = _html(node,value);
+
+        if (value !== undefined) {
+            var scripts = node.querySelectorAll('script');
+
+            for (var i =0; i<scripts.length; i++) {
+                var node1 = scripts[i];
+                if (rscriptType.test( node1.type || "" ) ) {
+                  scripter.evaluate(node1.textContent,node1);
+                }
+            }       
+            return this;         
+        } else {
+            return result;
+        }
+    }
 
     /*   
      * Check to see if a dom node is a descendant of another dom node.
@@ -11433,7 +11832,7 @@ function removeSelfClosingTags(xml) {
 
 
     function reflow(elm) {
-        if (el == null) {
+        if (!elm) {
           elm = document;
         }
         elm.offsetHeight;
@@ -12047,6 +12446,8 @@ define('skylark-domx-geom/geom',[
     "skylark-domx-noder",
     "skylark-domx-styler"
 ], function(skylark, langx, noder, styler) {
+  'use strict'
+
     var rootNodeRE = /^(?:body|html)$/i,
         px = langx.toPixel,
         offsetParent = noder.offsetParent,
@@ -12079,7 +12480,11 @@ define('skylark-domx-geom/geom',[
         return (cachedScrollbarWidth = w1 - w2);
     }
 
-    
+
+    function hasScrollbar() {
+        return document.body.scrollHeight > (window.innerHeight || document.documentElement.clientHeight);
+    }
+
     /*
      * Get the widths of each border of the specified element.
      * @param {HTMLElement} elm
@@ -12290,6 +12695,24 @@ define('skylark-domx-geom/geom',[
         }
     }
 
+
+
+    function inview(elm, cushion) {
+        function calibrate(coords, cushion) {
+            var o = {};
+            cushion = +cushion || 0;
+            o.width = (o.right = coords.right + cushion) - (o.left = coords.left - cushion);
+            o.height = (o.bottom = coords.bottom + cushion) - (o.top = coords.top - cushion);
+            return o;
+        }
+
+        var r = calibrate(boundingRect(elm), cushion),
+            vsize = viewportSize();
+
+        return !!r && r.bottom >= 0 && r.right >= 0 && r.top <= vsize.height && r.left <= vsize.width;
+    }
+
+
     /*
      * Get the widths of each margin of the specified element.
      * @param {HTMLElement} elm
@@ -12432,14 +12855,28 @@ define('skylark-domx-geom/geom',[
                 left: offset.left - parentOffset.left - pbex.left - mex.left
             }
         } else {
+            var // Get *real* offsetParent
+                parent = offsetParent(elm);
+
             var props = {
                 top: coords.top,
                 left: coords.left
+            };
+
+            if (langx.isDefined(props.top)) {
+                props.top = props.top + (scrollTop(parent) || 0);
             }
+
+            if (langx.isDefined(props.left)) {
+                props.left = props.left + (scrollLeft(parent) || 0);
+            } 
+
 
             if (styler.css(elm, "position") == "static") {
                 props['position'] = "relative";
             }
+
+
             styler.css(elm, props);
             return this;
         }
@@ -12524,6 +12961,8 @@ define('skylark-domx-geom/geom',[
     function scrollLeft(elm, value) {
         if (elm.nodeType === 9) {
             elm = elm.defaultView;
+        } else if (elm == document.body) {
+            elm = document.scrollingElement  || document.documentElement;
         }
         var hasScrollLeft = "scrollLeft" in elm;
         if (value === undefined) {
@@ -12545,7 +12984,10 @@ define('skylark-domx-geom/geom',[
     function scrollTop(elm, value) {
         if (elm.nodeType === 9) {
             elm = elm.defaultView;
+        } else if (elm == document.body) {
+            elm = document.scrollingElement  || document.documentElement;
         }
+
         var hasScrollTop = "scrollTop" in elm;
 
         if (value === undefined) {
@@ -12609,6 +13051,14 @@ define('skylark-domx-geom/geom',[
             return this;
         }
     }
+
+
+    function viewportSize(win) {
+        win = win || window;
+
+        return boundingRect(win);
+    }
+
     /*
      * Get or set the size of the specified element border box.
      * @param {HTMLElement} elm
@@ -12684,7 +13134,11 @@ define('skylark-domx-geom/geom',[
 
         getDocumentSize: getDocumentSize,
 
+        hasScrollbar,
+
         height: height,
+
+        inview,
 
         marginExtents: marginExtents,
 
@@ -12720,450 +13174,12 @@ define('skylark-domx-geom/geom',[
 
         testAxis,
 
+        viewportSize,
+
         width: width
     });
 
-    ( function() {
-        var max = Math.max,
-            abs = Math.abs,
-            rhorizontal = /left|center|right/,
-            rvertical = /top|center|bottom/,
-            roffset = /[\+\-]\d+(\.[\d]+)?%?/,
-            rposition = /^\w+/,
-            rpercent = /%$/;
 
-        function getOffsets( offsets, width, height ) {
-            return [
-                parseFloat( offsets[ 0 ] ) * ( rpercent.test( offsets[ 0 ] ) ? width / 100 : 1 ),
-                parseFloat( offsets[ 1 ] ) * ( rpercent.test( offsets[ 1 ] ) ? height / 100 : 1 )
-            ];
-        }
-
-        function parseCss( element, property ) {
-            return parseInt( styler.css( element, property ), 10 ) || 0;
-        }
-
-        function getDimensions( raw ) {
-            if ( raw.nodeType === 9 ) {
-                return {
-                    size: size(raw),
-                    offset: { top: 0, left: 0 }
-                };
-            }
-            if ( noder.isWindow( raw ) ) {
-                return {
-                    size: size(raw),
-                    offset: { 
-                        top: scrollTop(raw), 
-                        left: scrollLeft(raw) 
-                    }
-                };
-            }
-            if ( raw.preventDefault ) {
-                return {
-                    size : {
-                        width: 0,
-                        height: 0
-                    },
-                    offset: { 
-                        top: raw.pageY, 
-                        left: raw.pageX 
-                    }
-                };
-            }
-            return {
-                size: size(raw),
-                offset: pagePosition(raw)
-            };
-        }
-
-        function getScrollInfo( within ) {
-            var overflowX = within.isWindow || within.isDocument ? "" :
-                    styler.css(within.element,"overflow-x" ),
-                overflowY = within.isWindow || within.isDocument ? "" :
-                    styler.css(within.element,"overflow-y" ),
-                hasOverflowX = overflowX === "scroll" ||
-                    ( overflowX === "auto" && within.width < scrollWidth(within.element) ),
-                hasOverflowY = overflowY === "scroll" ||
-                    ( overflowY === "auto" && within.height < scrollHeight(within.element));
-            return {
-                width: hasOverflowY ? scrollbarWidth() : 0,
-                height: hasOverflowX ? scrollbarWidth() : 0
-            };
-        }
-
-        function getWithinInfo( element ) {
-            var withinElement = element || window,
-                isWindow = noder.isWindow( withinElement),
-                isDocument = !!withinElement && withinElement.nodeType === 9,
-                hasOffset = !isWindow && !isDocument,
-                msize = marginSize(withinElement);
-            return {
-                element: withinElement,
-                isWindow: isWindow,
-                isDocument: isDocument,
-                offset: hasOffset ? pagePosition(element) : { left: 0, top: 0 },
-                scrollLeft: scrollLeft(withinElement),
-                scrollTop: scrollTop(withinElement),
-                width: msize.width,
-                height: msize.height
-            };
-        }
-
-        function posit(elm,options ) {
-            // Make a copy, we don't want to modify arguments
-            options = langx.extend( {}, options );
-
-            var atOffset, targetWidth, targetHeight, targetOffset, basePosition, dimensions,
-                target = options.of,
-                within = getWithinInfo( options.within ),
-                scrollInfo = getScrollInfo( within ),
-                collision = ( options.collision || "flip" ).split( " " ),
-                offsets = {};
-
-            dimensions = getDimensions( target );
-            if ( target.preventDefault ) {
-
-                // Force left top to allow flipping
-                options.at = "left top";
-            }
-            targetWidth = dimensions.size.width;
-            targetHeight = dimensions.size.height;
-            targetOffset = dimensions.offset;
-
-            // Clone to reuse original targetOffset later
-            basePosition = langx.extend( {}, targetOffset );
-
-            // Force my and at to have valid horizontal and vertical positions
-            // if a value is missing or invalid, it will be converted to center
-            langx.each( [ "my", "at" ], function() {
-                var pos = ( options[ this ] || "" ).split( " " ),
-                    horizontalOffset,
-                    verticalOffset;
-
-                if ( pos.length === 1 ) {
-                    pos = rhorizontal.test( pos[ 0 ] ) ?
-                        pos.concat( [ "center" ] ) :
-                        rvertical.test( pos[ 0 ] ) ?
-                            [ "center" ].concat( pos ) :
-                            [ "center", "center" ];
-                }
-                pos[ 0 ] = rhorizontal.test( pos[ 0 ] ) ? pos[ 0 ] : "center";
-                pos[ 1 ] = rvertical.test( pos[ 1 ] ) ? pos[ 1 ] : "center";
-
-                // Calculate offsets
-                horizontalOffset = roffset.exec( pos[ 0 ] );
-                verticalOffset = roffset.exec( pos[ 1 ] );
-                offsets[ this ] = [
-                    horizontalOffset ? horizontalOffset[ 0 ] : 0,
-                    verticalOffset ? verticalOffset[ 0 ] : 0
-                ];
-
-                // Reduce to just the positions without the offsets
-                options[ this ] = [
-                    rposition.exec( pos[ 0 ] )[ 0 ],
-                    rposition.exec( pos[ 1 ] )[ 0 ]
-                ];
-            } );
-
-            // Normalize collision option
-            if ( collision.length === 1 ) {
-                collision[ 1 ] = collision[ 0 ];
-            }
-
-            if ( options.at[ 0 ] === "right" ) {
-                basePosition.left += targetWidth;
-            } else if ( options.at[ 0 ] === "center" ) {
-                basePosition.left += targetWidth / 2;
-            }
-
-            if ( options.at[ 1 ] === "bottom" ) {
-                basePosition.top += targetHeight;
-            } else if ( options.at[ 1 ] === "center" ) {
-                basePosition.top += targetHeight / 2;
-            }
-
-            atOffset = getOffsets( offsets.at, targetWidth, targetHeight );
-            basePosition.left += atOffset[ 0 ];
-            basePosition.top += atOffset[ 1 ];
-
-            return ( function(elem) {
-                var collisionPosition, using,
-                    msize = marginSize(elem),
-                    elemWidth = msize.width,
-                    elemHeight = msize.height,
-                    marginLeft = parseCss( elem, "marginLeft" ),
-                    marginTop = parseCss( elem, "marginTop" ),
-                    collisionWidth = elemWidth + marginLeft + parseCss( elem, "marginRight" ) +
-                        scrollInfo.width,
-                    collisionHeight = elemHeight + marginTop + parseCss( elem, "marginBottom" ) +
-                        scrollInfo.height,
-                    position = langx.extend( {}, basePosition ),
-                    myOffset = getOffsets( offsets.my, msize.width, msize.height);
-
-                if ( options.my[ 0 ] === "right" ) {
-                    position.left -= elemWidth;
-                } else if ( options.my[ 0 ] === "center" ) {
-                    position.left -= elemWidth / 2;
-                }
-
-                if ( options.my[ 1 ] === "bottom" ) {
-                    position.top -= elemHeight;
-                } else if ( options.my[ 1 ] === "center" ) {
-                    position.top -= elemHeight / 2;
-                }
-
-                position.left += myOffset[ 0 ];
-                position.top += myOffset[ 1 ];
-
-                collisionPosition = {
-                    marginLeft: marginLeft,
-                    marginTop: marginTop
-                };
-
-                langx.each( [ "left", "top" ], function( i, dir ) {
-                    if ( positions[ collision[ i ] ] ) {
-                        positions[ collision[ i ] ][ dir ]( position, {
-                            targetWidth: targetWidth,
-                            targetHeight: targetHeight,
-                            elemWidth: elemWidth,
-                            elemHeight: elemHeight,
-                            collisionPosition: collisionPosition,
-                            collisionWidth: collisionWidth,
-                            collisionHeight: collisionHeight,
-                            offset: [ atOffset[ 0 ] + myOffset[ 0 ], atOffset [ 1 ] + myOffset[ 1 ] ],
-                            my: options.my,
-                            at: options.at,
-                            within: within,
-                            elem: elem
-                        } );
-                    }
-                } );
-
-                if ( options.using ) {
-
-                    // Adds feedback as second argument to using callback, if present
-                    using = function( props ) {
-                        var left = targetOffset.left - position.left,
-                            right = left + targetWidth - elemWidth,
-                            top = targetOffset.top - position.top,
-                            bottom = top + targetHeight - elemHeight,
-                            feedback = {
-                                target: {
-                                    element: target,
-                                    left: targetOffset.left,
-                                    top: targetOffset.top,
-                                    width: targetWidth,
-                                    height: targetHeight
-                                },
-                                element: {
-                                    element: elem,
-                                    left: position.left,
-                                    top: position.top,
-                                    width: elemWidth,
-                                    height: elemHeight
-                                },
-                                horizontal: right < 0 ? "left" : left > 0 ? "right" : "center",
-                                vertical: bottom < 0 ? "top" : top > 0 ? "bottom" : "middle"
-                            };
-                        if ( targetWidth < elemWidth && abs( left + right ) < targetWidth ) {
-                            feedback.horizontal = "center";
-                        }
-                        if ( targetHeight < elemHeight && abs( top + bottom ) < targetHeight ) {
-                            feedback.vertical = "middle";
-                        }
-                        if ( max( abs( left ), abs( right ) ) > max( abs( top ), abs( bottom ) ) ) {
-                            feedback.important = "horizontal";
-                        } else {
-                            feedback.important = "vertical";
-                        }
-                        options.using.call( this, props, feedback );
-                    };
-                }
-
-                pagePosition(elem, langx.extend( position, { using: using } ));
-            })(elm);
-        }
-
-        var positions = {
-            fit: {
-                left: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.isWindow ? within.scrollLeft : within.offset.left,
-                        outerWidth = within.width,
-                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-                        overLeft = withinOffset - collisionPosLeft,
-                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - withinOffset,
-                        newOverRight;
-
-                    // Element is wider than within
-                    if ( data.collisionWidth > outerWidth ) {
-
-                        // Element is initially over the left side of within
-                        if ( overLeft > 0 && overRight <= 0 ) {
-                            newOverRight = position.left + overLeft + data.collisionWidth - outerWidth -
-                                withinOffset;
-                            position.left += overLeft - newOverRight;
-
-                        // Element is initially over right side of within
-                        } else if ( overRight > 0 && overLeft <= 0 ) {
-                            position.left = withinOffset;
-
-                        // Element is initially over both left and right sides of within
-                        } else {
-                            if ( overLeft > overRight ) {
-                                position.left = withinOffset + outerWidth - data.collisionWidth;
-                            } else {
-                                position.left = withinOffset;
-                            }
-                        }
-
-                    // Too far left -> align with left edge
-                    } else if ( overLeft > 0 ) {
-                        position.left += overLeft;
-
-                    // Too far right -> align with right edge
-                    } else if ( overRight > 0 ) {
-                        position.left -= overRight;
-
-                    // Adjust based on position and margin
-                    } else {
-                        position.left = max( position.left - collisionPosLeft, position.left );
-                    }
-                },
-                top: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.isWindow ? within.scrollTop : within.offset.top,
-                        outerHeight = data.within.height,
-                        collisionPosTop = position.top - data.collisionPosition.marginTop,
-                        overTop = withinOffset - collisionPosTop,
-                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - withinOffset,
-                        newOverBottom;
-
-                    // Element is taller than within
-                    if ( data.collisionHeight > outerHeight ) {
-
-                        // Element is initially over the top of within
-                        if ( overTop > 0 && overBottom <= 0 ) {
-                            newOverBottom = position.top + overTop + data.collisionHeight - outerHeight -
-                                withinOffset;
-                            position.top += overTop - newOverBottom;
-
-                        // Element is initially over bottom of within
-                        } else if ( overBottom > 0 && overTop <= 0 ) {
-                            position.top = withinOffset;
-
-                        // Element is initially over both top and bottom of within
-                        } else {
-                            if ( overTop > overBottom ) {
-                                position.top = withinOffset + outerHeight - data.collisionHeight;
-                            } else {
-                                position.top = withinOffset;
-                            }
-                        }
-
-                    // Too far up -> align with top
-                    } else if ( overTop > 0 ) {
-                        position.top += overTop;
-
-                    // Too far down -> align with bottom edge
-                    } else if ( overBottom > 0 ) {
-                        position.top -= overBottom;
-
-                    // Adjust based on position and margin
-                    } else {
-                        position.top = max( position.top - collisionPosTop, position.top );
-                    }
-                }
-            },
-            flip: {
-                left: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.offset.left + within.scrollLeft,
-                        outerWidth = within.width,
-                        offsetLeft = within.isWindow ? within.scrollLeft : within.offset.left,
-                        collisionPosLeft = position.left - data.collisionPosition.marginLeft,
-                        overLeft = collisionPosLeft - offsetLeft,
-                        overRight = collisionPosLeft + data.collisionWidth - outerWidth - offsetLeft,
-                        myOffset = data.my[ 0 ] === "left" ?
-                            -data.elemWidth :
-                            data.my[ 0 ] === "right" ?
-                                data.elemWidth :
-                                0,
-                        atOffset = data.at[ 0 ] === "left" ?
-                            data.targetWidth :
-                            data.at[ 0 ] === "right" ?
-                                -data.targetWidth :
-                                0,
-                        offset = -2 * data.offset[ 0 ],
-                        newOverRight,
-                        newOverLeft;
-
-                    if ( overLeft < 0 ) {
-                        newOverRight = position.left + myOffset + atOffset + offset + data.collisionWidth -
-                            outerWidth - withinOffset;
-                        if ( newOverRight < 0 || newOverRight < abs( overLeft ) ) {
-                            position.left += myOffset + atOffset + offset;
-                        }
-                    } else if ( overRight > 0 ) {
-                        newOverLeft = position.left - data.collisionPosition.marginLeft + myOffset +
-                            atOffset + offset - offsetLeft;
-                        if ( newOverLeft > 0 || abs( newOverLeft ) < overRight ) {
-                            position.left += myOffset + atOffset + offset;
-                        }
-                    }
-                },
-                top: function( position, data ) {
-                    var within = data.within,
-                        withinOffset = within.offset.top + within.scrollTop,
-                        outerHeight = within.height,
-                        offsetTop = within.isWindow ? within.scrollTop : within.offset.top,
-                        collisionPosTop = position.top - data.collisionPosition.marginTop,
-                        overTop = collisionPosTop - offsetTop,
-                        overBottom = collisionPosTop + data.collisionHeight - outerHeight - offsetTop,
-                        top = data.my[ 1 ] === "top",
-                        myOffset = top ?
-                            -data.elemHeight :
-                            data.my[ 1 ] === "bottom" ?
-                                data.elemHeight :
-                                0,
-                        atOffset = data.at[ 1 ] === "top" ?
-                            data.targetHeight :
-                            data.at[ 1 ] === "bottom" ?
-                                -data.targetHeight :
-                                0,
-                        offset = -2 * data.offset[ 1 ],
-                        newOverTop,
-                        newOverBottom;
-                    if ( overTop < 0 ) {
-                        newOverBottom = position.top + myOffset + atOffset + offset + data.collisionHeight -
-                            outerHeight - withinOffset;
-                        if ( newOverBottom < 0 || newOverBottom < abs( overTop ) ) {
-                            position.top += myOffset + atOffset + offset;
-                        }
-                    } else if ( overBottom > 0 ) {
-                        newOverTop = position.top - data.collisionPosition.marginTop + myOffset + atOffset +
-                            offset - offsetTop;
-                        if ( newOverTop > 0 || abs( newOverTop ) < overBottom ) {
-                            position.top += myOffset + atOffset + offset;
-                        }
-                    }
-                }
-            },
-            flipfit: {
-                left: function() {
-                    positions.flip.left.apply( this, arguments );
-                    positions.fit.left.apply( this, arguments );
-                },
-                top: function() {
-                    positions.flip.top.apply( this, arguments );
-                    positions.fit.top.apply( this, arguments );
-                }
-            }
-        };
-
-        geom.posit = posit;
-    })();
 
     return skylark.attach("domx.geom", geom);
 });
@@ -15228,7 +15244,7 @@ define('skylark-domx-query/query',[
         };
 
         $.fn.reflow = function() {
-            return noder.flow(this[0]);
+            return noder.reflow(this[0]);
         };
 
         $.fn.isBlockNode = function() {
@@ -15526,11 +15542,499 @@ define('skylark-domx-velm/main',[
 });
 define('skylark-domx-velm', ['skylark-domx-velm/main'], function (main) { return main; });
 
+define('skylark-domx-geom/posit',[
+    "skylark-langx/langx",
+    "skylark-domx-noder",
+    "skylark-domx-styler",
+	"./geom"
+],function(langx,noder,styler,geom){
+  'use strict'
+
+
+
+
+    var max = Math.max,
+        abs = Math.abs,
+        rhorizontal = /left|center|right/,
+        rvertical = /top|center|bottom/,
+        roffset = /[\+\-]\d+(\.[\d]+)?%?/,
+        rposition = /^\w+/,
+        rpercent = /%$/;
+
+    function getOffsets( offsets, width, height ) {
+        return [
+            parseFloat( offsets[ 0 ] ) * ( rpercent.test( offsets[ 0 ] ) ? width / 100 : 1 ),
+            parseFloat( offsets[ 1 ] ) * ( rpercent.test( offsets[ 1 ] ) ? height / 100 : 1 )
+        ];
+    }
+
+    function parseCss( element, property ) {
+        return parseInt( styler.css( element, property ), 10 ) || 0;
+    }
+
+    function getDimensions( raw ) {
+        if ( raw.nodeType === 9 ) {
+            return {
+                size: size(raw),
+                offset: { top: 0, left: 0 }
+            };
+        }
+        if ( noder.isWindow( raw ) ) {
+            return {
+                size: geom.size(raw),
+                offset: { 
+                    top: geom.scrollTop(raw), 
+                    left: geom.scrollLeft(raw) 
+                }
+            };
+        }
+        if ( raw.preventDefault ) {
+            return {
+                size : {
+                    width: 0,
+                    height: 0
+                },
+                offset: { 
+                    top: raw.pageY, 
+                    left: raw.pageX 
+                }
+            };
+        }
+        return {
+            size: geom.size(raw),
+            offset: geom.pagePosition(raw)
+        };
+    }
+
+    function getScrollInfo( within ) {
+        var overflowX = within.isWindow || within.isDocument ? "" :
+                styler.css(within.element,"overflow-x" ),
+            overflowY = within.isWindow || within.isDocument ? "" :
+                styler.css(within.element,"overflow-y" ),
+            hasOverflowX = overflowX === "scroll" ||
+                ( overflowX === "auto" && within.width < geom.scrollWidth(within.element) ),
+            hasOverflowY = overflowY === "scroll" ||
+                ( overflowY === "auto" && within.height < geom.scrollHeight(within.element));
+        return {
+            width: hasOverflowY ? geom.scrollbarWidth() : 0,
+            height: hasOverflowX ? geom.scrollbarWidth() : 0
+        };
+    }
+
+    function getWithinInfo( element ) {
+        var withinElement = element || window,
+            isWindow = noder.isWindow( withinElement),
+            isDocument = !!withinElement && withinElement.nodeType === 9,
+            hasOffset = !isWindow && !isDocument,
+            msize = marginSize(withinElement);
+        return {
+            element: withinElement,
+            isWindow: isWindow,
+            isDocument: isDocument,
+            offset: hasOffset ? geom.pagePosition(element) : { left: 0, top: 0 },
+            scrollLeft: geom.scrollLeft(withinElement),
+            scrollTop: geom.scrollTop(withinElement),
+            width: msize.width,
+            height: msize.height
+        };
+    }
+
+    function posit(elm,options ) {
+        // Make a copy, we don't want to modify arguments
+        options = langx.extend( {}, options );
+
+        var atOffset, targetWidth, targetHeight, targetOffset, basePosition, dimensions,
+            target = options.of,
+            within = getWithinInfo( options.within ),
+            scrollInfo = getScrollInfo( within ),
+            collision = ( options.collision || "flip" ).split( " " ),
+            offsets = {};
+
+        dimensions = getDimensions( target );
+        if ( target.preventDefault ) {
+
+            // Force left top to allow flipping
+            options.at = "left top";
+        }
+        targetWidth = dimensions.size.width;
+        targetHeight = dimensions.size.height;
+        targetOffset = dimensions.offset;
+
+        // Clone to reuse original targetOffset later
+        basePosition = langx.extend( {}, targetOffset );
+
+        // Force my and at to have valid horizontal and vertical positions
+        // if a value is missing or invalid, it will be converted to center
+        langx.each( [ "my", "at" ], function() {
+            var pos = ( options[ this ] || "" ).split( " " ),
+                horizontalOffset,
+                verticalOffset;
+
+            if ( pos.length === 1 ) {
+                pos = rhorizontal.test( pos[ 0 ] ) ?
+                    pos.concat( [ "center" ] ) :
+                    rvertical.test( pos[ 0 ] ) ?
+                        [ "center" ].concat( pos ) :
+                        [ "center", "center" ];
+            }
+            pos[ 0 ] = rhorizontal.test( pos[ 0 ] ) ? pos[ 0 ] : "center";
+            pos[ 1 ] = rvertical.test( pos[ 1 ] ) ? pos[ 1 ] : "center";
+
+            // Calculate offsets
+            horizontalOffset = roffset.exec( pos[ 0 ] );
+            verticalOffset = roffset.exec( pos[ 1 ] );
+            offsets[ this ] = [
+                horizontalOffset ? horizontalOffset[ 0 ] : 0,
+                verticalOffset ? verticalOffset[ 0 ] : 0
+            ];
+
+            // Reduce to just the positions without the offsets
+            options[ this ] = [
+                rposition.exec( pos[ 0 ] )[ 0 ],
+                rposition.exec( pos[ 1 ] )[ 0 ]
+            ];
+        } );
+
+        // Normalize collision option
+        if ( collision.length === 1 ) {
+            collision[ 1 ] = collision[ 0 ];
+        }
+
+        if ( options.at[ 0 ] === "right" ) {
+            basePosition.left += targetWidth;
+        } else if ( options.at[ 0 ] === "center" ) {
+            basePosition.left += targetWidth / 2;
+        }
+
+        if ( options.at[ 1 ] === "bottom" ) {
+            basePosition.top += targetHeight;
+        } else if ( options.at[ 1 ] === "center" ) {
+            basePosition.top += targetHeight / 2;
+        }
+
+        atOffset = getOffsets( offsets.at, targetWidth, targetHeight );
+        basePosition.left += atOffset[ 0 ];
+        basePosition.top += atOffset[ 1 ];
+
+        return ( function(elem) {
+            var collisionPosition, using,
+                msize = geom.marginSize(elem),
+                elemWidth = msize.width,
+                elemHeight = msize.height,
+                marginLeft = parseCss( elem, "marginLeft" ),
+                marginTop = parseCss( elem, "marginTop" ),
+                collisionWidth = elemWidth + marginLeft + parseCss( elem, "marginRight" ) +
+                    scrollInfo.width,
+                collisionHeight = elemHeight + marginTop + parseCss( elem, "marginBottom" ) +
+                    scrollInfo.height,
+                position = langx.extend( {}, basePosition ),
+                myOffset = getOffsets( offsets.my, msize.width, msize.height);
+
+            if ( options.my[ 0 ] === "right" ) {
+                position.left -= elemWidth;
+            } else if ( options.my[ 0 ] === "center" ) {
+                position.left -= elemWidth / 2;
+            }
+
+            if ( options.my[ 1 ] === "bottom" ) {
+                position.top -= elemHeight;
+            } else if ( options.my[ 1 ] === "center" ) {
+                position.top -= elemHeight / 2;
+            }
+
+            position.left += myOffset[ 0 ];
+            position.top += myOffset[ 1 ];
+
+            collisionPosition = {
+                marginLeft: marginLeft,
+                marginTop: marginTop
+            };
+
+            langx.each( [ "left", "top" ], function( i, dir ) {
+                if ( positions[ collision[ i ] ] ) {
+                    positions[ collision[ i ] ][ dir ]( position, {
+                        targetWidth: targetWidth,
+                        targetHeight: targetHeight,
+                        elemWidth: elemWidth,
+                        elemHeight: elemHeight,
+                        collisionPosition: collisionPosition,
+                        collisionWidth: collisionWidth,
+                        collisionHeight: collisionHeight,
+                        offset: [ atOffset[ 0 ] + myOffset[ 0 ], atOffset [ 1 ] + myOffset[ 1 ] ],
+                        my: options.my,
+                        at: options.at,
+                        within: within,
+                        elem: elem
+                    } );
+                }
+            } );
+
+            if ( options.using ) {
+
+                // Adds feedback as second argument to using callback, if present
+                using = function( props ) {
+                    var left = targetOffset.left - position.left,
+                        right = left + targetWidth - elemWidth,
+                        top = targetOffset.top - position.top,
+                        bottom = top + targetHeight - elemHeight,
+                        feedback = {
+                            target: {
+                                element: target,
+                                left: targetOffset.left,
+                                top: targetOffset.top,
+                                width: targetWidth,
+                                height: targetHeight
+                            },
+                            element: {
+                                element: elem,
+                                left: position.left,
+                                top: position.top,
+                                width: elemWidth,
+                                height: elemHeight
+                            },
+                            horizontal: right < 0 ? "left" : left > 0 ? "right" : "center",
+                            vertical: bottom < 0 ? "top" : top > 0 ? "bottom" : "middle"
+                        };
+                    if ( targetWidth < elemWidth && abs( left + right ) < targetWidth ) {
+                        feedback.horizontal = "center";
+                    }
+                    if ( targetHeight < elemHeight && abs( top + bottom ) < targetHeight ) {
+                        feedback.vertical = "middle";
+                    }
+                    if ( max( abs( left ), abs( right ) ) > max( abs( top ), abs( bottom ) ) ) {
+                        feedback.important = "horizontal";
+                    } else {
+                        feedback.important = "vertical";
+                    }
+                    options.using.call( this, props, feedback );
+                };
+            }
+
+            geom.pagePosition(elem, langx.extend( position, { using: using } ));
+        })(elm);
+    }
+
+    var positions = {
+        fit: {
+            left: function( position, data ) {
+                var within = data.within,
+                    withinOffset = within.isWindow ? within.scrollLeft : within.offset.left,
+                    outerWidth = within.width,
+                    collisionPosLeft = position.left - data.collisionPosition.marginLeft,
+                    overLeft = withinOffset - collisionPosLeft,
+                    overRight = collisionPosLeft + data.collisionWidth - outerWidth - withinOffset,
+                    newOverRight;
+
+                // Element is wider than within
+                if ( data.collisionWidth > outerWidth ) {
+
+                    // Element is initially over the left side of within
+                    if ( overLeft > 0 && overRight <= 0 ) {
+                        newOverRight = position.left + overLeft + data.collisionWidth - outerWidth -
+                            withinOffset;
+                        position.left += overLeft - newOverRight;
+
+                    // Element is initially over right side of within
+                    } else if ( overRight > 0 && overLeft <= 0 ) {
+                        position.left = withinOffset;
+
+                    // Element is initially over both left and right sides of within
+                    } else {
+                        if ( overLeft > overRight ) {
+                            position.left = withinOffset + outerWidth - data.collisionWidth;
+                        } else {
+                            position.left = withinOffset;
+                        }
+                    }
+
+                // Too far left -> align with left edge
+                } else if ( overLeft > 0 ) {
+                    position.left += overLeft;
+
+                // Too far right -> align with right edge
+                } else if ( overRight > 0 ) {
+                    position.left -= overRight;
+
+                // Adjust based on position and margin
+                } else {
+                    position.left = max( position.left - collisionPosLeft, position.left );
+                }
+            },
+            top: function( position, data ) {
+                var within = data.within,
+                    withinOffset = within.isWindow ? within.scrollTop : within.offset.top,
+                    outerHeight = data.within.height,
+                    collisionPosTop = position.top - data.collisionPosition.marginTop,
+                    overTop = withinOffset - collisionPosTop,
+                    overBottom = collisionPosTop + data.collisionHeight - outerHeight - withinOffset,
+                    newOverBottom;
+
+                // Element is taller than within
+                if ( data.collisionHeight > outerHeight ) {
+
+                    // Element is initially over the top of within
+                    if ( overTop > 0 && overBottom <= 0 ) {
+                        newOverBottom = position.top + overTop + data.collisionHeight - outerHeight -
+                            withinOffset;
+                        position.top += overTop - newOverBottom;
+
+                    // Element is initially over bottom of within
+                    } else if ( overBottom > 0 && overTop <= 0 ) {
+                        position.top = withinOffset;
+
+                    // Element is initially over both top and bottom of within
+                    } else {
+                        if ( overTop > overBottom ) {
+                            position.top = withinOffset + outerHeight - data.collisionHeight;
+                        } else {
+                            position.top = withinOffset;
+                        }
+                    }
+
+                // Too far up -> align with top
+                } else if ( overTop > 0 ) {
+                    position.top += overTop;
+
+                // Too far down -> align with bottom edge
+                } else if ( overBottom > 0 ) {
+                    position.top -= overBottom;
+
+                // Adjust based on position and margin
+                } else {
+                    position.top = max( position.top - collisionPosTop, position.top );
+                }
+            }
+        },
+        flip: {
+            left: function( position, data ) {
+                var within = data.within,
+                    withinOffset = within.offset.left + within.scrollLeft,
+                    outerWidth = within.width,
+                    offsetLeft = within.isWindow ? within.scrollLeft : within.offset.left,
+                    collisionPosLeft = position.left - data.collisionPosition.marginLeft,
+                    overLeft = collisionPosLeft - offsetLeft,
+                    overRight = collisionPosLeft + data.collisionWidth - outerWidth - offsetLeft,
+                    myOffset = data.my[ 0 ] === "left" ?
+                        -data.elemWidth :
+                        data.my[ 0 ] === "right" ?
+                            data.elemWidth :
+                            0,
+                    atOffset = data.at[ 0 ] === "left" ?
+                        data.targetWidth :
+                        data.at[ 0 ] === "right" ?
+                            -data.targetWidth :
+                            0,
+                    offset = -2 * data.offset[ 0 ],
+                    newOverRight,
+                    newOverLeft;
+
+                if ( overLeft < 0 ) {
+                    newOverRight = position.left + myOffset + atOffset + offset + data.collisionWidth -
+                        outerWidth - withinOffset;
+                    if ( newOverRight < 0 || newOverRight < abs( overLeft ) ) {
+                        position.left += myOffset + atOffset + offset;
+                    }
+                } else if ( overRight > 0 ) {
+                    newOverLeft = position.left - data.collisionPosition.marginLeft + myOffset +
+                        atOffset + offset - offsetLeft;
+                    if ( newOverLeft > 0 || abs( newOverLeft ) < overRight ) {
+                        position.left += myOffset + atOffset + offset;
+                    }
+                }
+            },
+            top: function( position, data ) {
+                var within = data.within,
+                    withinOffset = within.offset.top + within.scrollTop,
+                    outerHeight = within.height,
+                    offsetTop = within.isWindow ? within.scrollTop : within.offset.top,
+                    collisionPosTop = position.top - data.collisionPosition.marginTop,
+                    overTop = collisionPosTop - offsetTop,
+                    overBottom = collisionPosTop + data.collisionHeight - outerHeight - offsetTop,
+                    top = data.my[ 1 ] === "top",
+                    myOffset = top ?
+                        -data.elemHeight :
+                        data.my[ 1 ] === "bottom" ?
+                            data.elemHeight :
+                            0,
+                    atOffset = data.at[ 1 ] === "top" ?
+                        data.targetHeight :
+                        data.at[ 1 ] === "bottom" ?
+                            -data.targetHeight :
+                            0,
+                    offset = -2 * data.offset[ 1 ],
+                    newOverTop,
+                    newOverBottom;
+                if ( overTop < 0 ) {
+                    newOverBottom = position.top + myOffset + atOffset + offset + data.collisionHeight -
+                        outerHeight - withinOffset;
+                    if ( newOverBottom < 0 || newOverBottom < abs( overTop ) ) {
+                        position.top += myOffset + atOffset + offset;
+                    }
+                } else if ( overBottom > 0 ) {
+                    newOverTop = position.top - data.collisionPosition.marginTop + myOffset + atOffset +
+                        offset - offsetTop;
+                    if ( newOverTop > 0 || abs( newOverTop ) < overBottom ) {
+                        position.top += myOffset + atOffset + offset;
+                    }
+                }
+            }
+        },
+        flipfit: {
+            left: function() {
+                positions.flip.left.apply( this, arguments );
+                positions.fit.left.apply( this, arguments );
+            },
+            top: function() {
+                positions.flip.top.apply( this, arguments );
+                positions.fit.top.apply( this, arguments );
+            }
+        }
+    };
+
+    return geom.posit = posit;
+});
+define('skylark-domx-geom/scrollToTop',[
+    "skylark-langx/langx",
+    "skylark-domx-styler",
+    "./geom"
+],function(langx,styler,geom) {
+    /*   
+     * Set the vertical position of the scroll bar for an element.
+     * @param {Object} elm  
+     * @param {Number or String} pos
+     * @param {Number or String} speed
+     * @param {Function} callback
+     */
+    function scrollToTop(elm, pos, speed, callback) {
+        var scrollFrom = parseInt(elm.scrollTop),
+            i = 0,
+            runEvery = 5, // run every 5ms
+            freq = speed * 1000 / runEvery,
+            scrollTo = parseInt(pos);
+
+        var interval = setInterval(function() {
+            i++;
+
+            if (i <= freq) elm.scrollTop = (scrollTo - scrollFrom) / freq * i + scrollFrom;
+
+            if (i >= freq + 1) {
+                clearInterval(interval);
+                if (callback) langx.debounce(callback, 1000)();
+            }
+        }, runEvery);
+
+        return this;
+    }
+
+    return geom.scrollToTop = scrollToTop;
+});
 define('skylark-domx-geom/main',[
     "skylark-langx/langx",
     "./geom",
     "skylark-domx-velm",
-    "skylark-domx-query"        
+    "skylark-domx-query",
+    "./posit",
+    "./scrollToTop"
 ],function(langx,geom,velm,$){
    // from ./geom
     velm.delegate([
@@ -15554,9 +16058,11 @@ define('skylark-domx-geom/main',[
         "scrollIntoView",
         "scrollLeft",
         "scrollTop",
-        "size",
+        "pageSize",
         "width"
-    ], geom);
+    ], geom,{
+        "pageSize" : "size"
+    });
 
     $.fn.offset = $.wraps.wrapper_value(geom.pagePosition, geom, geom.pagePosition);
 
@@ -15588,7 +16094,7 @@ define('skylark-domx-geom/main',[
     $.fn.offsetParent = $.wraps.wrapper_map(geom.offsetParent, geom);
 
 
-    $.fn.size = $.wraps.wrapper_value(geom.size, geom);
+    $.fn.pageSize = $.wraps.wrapper_value(geom.size, geom);
 
     $.fn.width = $.wraps.wrapper_value(geom.width, geom, geom.width);
 
@@ -15948,13 +16454,23 @@ define('skylark-domx-data/data',[
      * @param {String} value
      */
     function prop(elm, name, value) {
-        name = propMap[name] || name;
-        if (value === undefined) {
-            return elm[name];
-        } else {
-            elm[name] = value;
-            return this;
-        }
+      if (value === undefined) {
+          if (typeof name === "object") {
+              for (var propName in name) {
+                  prop(elm, propName, name[propName]);
+              }
+              return this;
+          } 
+      } 
+
+
+      name = propMap[name] || name;
+      if (value === undefined) {
+          return elm[name];
+      } else {
+          elm[name] = value;
+          return this;
+      }
     }
 
     /*
@@ -15989,9 +16505,14 @@ define('skylark-domx-data/data',[
      */
     function text(elm, txt) {
         if (txt === undefined) {
-            return elm.textContent;
+            return elm.textContent !==undefined  ? elm.textContent : elm.innerText;
         } else {
-            elm.textContent = txt == null ? '' : '' + txt;
+            txt = txt == null ? '' : '' + txt ;
+            if (elm.textContent !==undefined ) {
+              elm.textContent = txt ;
+            } else {
+              elm.innerText = txt ;
+            }
             return this;
         }
     }
@@ -16593,6 +17114,23 @@ define('skylark-domx-eventer/eventer',[
         return this;
     }
 
+    var focusedQueue = [],
+        focuser = langx.loop(function(){
+            for (var i = 0; i<focusedQueue.length; i++) {
+                trigger(focusedQueue[i],"focused");
+            }
+            focusedQueue = [];
+        });
+
+    focuser.start();
+
+
+    function focused(elm) {
+        if (!focusedQueue.includes(elm)) {
+            focusedQueue.push(elm)
+        }
+    }
+
     /*   
      * Remove an event handler for one or more events from the specified element.
      * @param {HTMLElement} elm  
@@ -16711,8 +17249,8 @@ define('skylark-domx-eventer/eventer',[
      * @param {Anything Optional} data
      * @param {Function} callback
      */
-    function one(elm, events, selector, data, callback) {
-        on(elm, events, selector, data, callback, 1);
+    function one(...args) {
+        on(...args, true);
 
         return this;
     }
@@ -16783,11 +17321,11 @@ define('skylark-domx-eventer/eventer',[
 
 
     function resized(elm) {
-        if (!resizedQueue.contains(elm)) {
+        if (!resizedQueue.includes(elm)) {
             resizedQueue.push(elm)
         }
-
     }
+
 
     var keyCodeLookup = {
         "backspace": 8,
@@ -16907,6 +17445,8 @@ define('skylark-domx-eventer/eventer',[
         clear,
         
         create: createEvent,
+
+        focused,
 
         keys: keyCodeLookup,
 
